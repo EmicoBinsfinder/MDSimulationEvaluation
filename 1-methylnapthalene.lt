@@ -1,0 +1,111 @@
+import "oplsaa.lt"    # <-- defines the standard "OPLSAA" force field
+1-methylnapthalene inherits OPLSAA {
+# atom-id  mol-id  atom-type charge      X         Y        Z
+  write('Data Atoms') {
+	$atom:C0	$mol	@atom:80	0	  -2.075	   1.696	  -0.564
+	$atom:C1	$mol	@atom:82	0	  -1.342	   0.406	  -0.411
+	$atom:C2	$mol	@atom:81	0	  -2.216	  -0.547	   0.387
+	$atom:C3	$mol	@atom:81	0	  -1.533	  -1.914	   0.280
+	$atom:C4	$mol	@atom:81	0	  -0.254	  -1.817	   1.061
+	$atom:C5	$mol	@atom:82	0	   0.623	  -0.686	   0.681
+	$atom:C6	$mol	@atom:81	0	   1.525	  -1.070	  -0.490
+	$atom:C7	$mol	@atom:81	0	   2.653	  -0.086	  -0.518
+	$atom:C8	$mol	@atom:81	0	   2.250	   1.322	  -0.235
+	$atom:C9	$mol	@atom:81	0	   0.785	   1.582	  -0.312
+	$atom:C10	$mol	@atom:82	0	  -0.070	   0.604	   0.413
+	$atom:H11	$mol	@atom:85	0	  -1.498	   2.481	  -1.076
+	$atom:H12	$mol	@atom:85	0	  -2.967	   1.499	  -1.211
+	$atom:H13	$mol	@atom:85	0	  -2.477	   2.006	   0.415
+	$atom:H14	$mol	@atom:85	0	  -1.130	  -0.051	  -1.391
+	$atom:H15	$mol	@atom:85	0	  -2.204	  -0.259	   1.449
+	$atom:H16	$mol	@atom:85	0	  -3.252	  -0.573	   0.026
+	$atom:H17	$mol	@atom:85	0	  -1.324	  -2.045	  -0.811
+	$atom:H18	$mol	@atom:85	0	  -2.136	  -2.717	   0.704
+	$atom:H19	$mol	@atom:85	0	  -0.535	  -1.782	   2.141
+	$atom:H20	$mol	@atom:85	0	   0.328	  -2.770	   0.903
+	$atom:H21	$mol	@atom:85	0	   1.336	  -0.505	   1.539
+	$atom:H22	$mol	@atom:85	0	   1.912	  -2.093	  -0.266
+	$atom:H23	$mol	@atom:85	0	   0.917	  -1.058	  -1.399
+	$atom:H24	$mol	@atom:85	0	   3.373	  -0.396	   0.287
+	$atom:H25	$mol	@atom:85	0	   3.207	  -0.206	  -1.480
+	$atom:H26	$mol	@atom:85	0	   2.739	   1.965	  -1.025
+	$atom:H27	$mol	@atom:85	0	   2.682	   1.712	   0.731
+	$atom:H28	$mol	@atom:85	0	   0.489	   1.684	  -1.372
+	$atom:H29	$mol	@atom:85	0	   0.604	   2.596	   0.143
+	$atom:H30	$mol	@atom:85	0	  -0.411	   1.022	   1.400
+  }
+  write('Data Bond List') {
+	$bond:C0C1	$atom:C0	$atom:C1
+	$bond:C1C2	$atom:C1	$atom:C2
+	$bond:C2C3	$atom:C2	$atom:C3
+	$bond:C3C4	$atom:C3	$atom:C4
+	$bond:C4C5	$atom:C4	$atom:C5
+	$bond:C5C6	$atom:C5	$atom:C6
+	$bond:C6C7	$atom:C6	$atom:C7
+	$bond:C7C8	$atom:C7	$atom:C8
+	$bond:C8C9	$atom:C8	$atom:C9
+	$bond:C9C10	$atom:C9	$atom:C10
+	$bond:C10C1	$atom:C10	$atom:C1
+	$bond:C10C5	$atom:C10	$atom:C5
+	$bond:C0H11	$atom:C0	$atom:H11
+	$bond:C0H12	$atom:C0	$atom:H12
+	$bond:C0H13	$atom:C0	$atom:H13
+	$bond:C1H14	$atom:C1	$atom:H14
+	$bond:C2H15	$atom:C2	$atom:H15
+	$bond:C2H16	$atom:C2	$atom:H16
+	$bond:C3H17	$atom:C3	$atom:H17
+	$bond:C3H18	$atom:C3	$atom:H18
+	$bond:C4H19	$atom:C4	$atom:H19
+	$bond:C4H20	$atom:C4	$atom:H20
+	$bond:C5H21	$atom:C5	$atom:H21
+	$bond:C6H22	$atom:C6	$atom:H22
+	$bond:C6H23	$atom:C6	$atom:H23
+	$bond:C7H24	$atom:C7	$atom:H24
+	$bond:C7H25	$atom:C7	$atom:H25
+	$bond:C8H26	$atom:C8	$atom:H26
+	$bond:C8H27	$atom:C8	$atom:H27
+	$bond:C9H28	$atom:C9	$atom:H28
+	$bond:C9H29	$atom:C9	$atom:H29
+	$bond:C10H30	$atom:C10	$atom:H30
+  }
+} # 1-methylnapthalene
+
+
+
+# Note: You don't need to supply the partial partial charges of the atoms.
+#       If you like, just fill the fourth column with zeros ("0.000").
+#       Moltemplate and LAMMPS will automatically assign the charge later
+# Given the current charge dictionary, the atoms will have the following charges:
+# Atom 0 is type @atom:80 with charge -0.18
+# Atom 1 is type @atom:82 with charge -0.06
+# Atom 2 is type @atom:81 with charge -0.12
+# Atom 3 is type @atom:81 with charge -0.12
+# Atom 4 is type @atom:81 with charge -0.12
+# Atom 5 is type @atom:82 with charge -0.06
+# Atom 6 is type @atom:81 with charge -0.12
+# Atom 7 is type @atom:81 with charge -0.12
+# Atom 8 is type @atom:81 with charge -0.12
+# Atom 9 is type @atom:81 with charge -0.12
+# Atom 10 is type @atom:82 with charge -0.06
+# Atom 11 is type @atom:85 with charge 0.06
+# Atom 12 is type @atom:85 with charge 0.06
+# Atom 13 is type @atom:85 with charge 0.06
+# Atom 14 is type @atom:85 with charge 0.06
+# Atom 15 is type @atom:85 with charge 0.06
+# Atom 16 is type @atom:85 with charge 0.06
+# Atom 17 is type @atom:85 with charge 0.06
+# Atom 18 is type @atom:85 with charge 0.06
+# Atom 19 is type @atom:85 with charge 0.06
+# Atom 20 is type @atom:85 with charge 0.06
+# Atom 21 is type @atom:85 with charge 0.06
+# Atom 22 is type @atom:85 with charge 0.06
+# Atom 23 is type @atom:85 with charge 0.06
+# Atom 24 is type @atom:85 with charge 0.06
+# Atom 25 is type @atom:85 with charge 0.06
+# Atom 26 is type @atom:85 with charge 0.06
+# Atom 27 is type @atom:85 with charge 0.06
+# Atom 28 is type @atom:85 with charge 0.06
+# Atom 29 is type @atom:85 with charge 0.06
+# Atom 30 is type @atom:85 with charge 0.06
+# The sum of the atomic charges is: 0.00
+#0.00000

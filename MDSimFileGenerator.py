@@ -18,14 +18,14 @@ def runcmd(cmd, verbose = False, *args, **kwargs):
     
     return process
 
-def MakeLAMMPSFile(Name, CWD, GKRuntime, Temp):
+def MakeLAMMPSFile(Name, CWD, GKRuntime, Temp, ID):
     
-    if os.path.exists(f"{os.path.join(CWD, f'{Name}_system_{Temp}K.lammps')}"):
+    if os.path.exists(f"{os.path.join(CWD, f'{Name}_system_{Temp}K_{ID}.lammps')}"):
         print('Specified LAMMPS file already exists in this location, overwriting.')
-        os.remove(f"{os.path.join(CWD, f'{Name}_system_{Temp}K.lammps')}")
+        os.remove(f"{os.path.join(CWD, f'{Name}_system_{Temp}K_{ID}.lammps')}")
 
     # Write LAMMPS file for 40C run
-    with open(os.path.join(CWD, f'{Name}_system_{Temp}K.lammps'), 'x') as file:
+    with open(os.path.join(CWD, f'{Name}_system_{Temp}K_{ID}.lammps'), 'x') as file:
         file.write(f"""
 # Setup parameters
 variable       		T equal {Temp} # Equilibrium temperature [K]
@@ -220,7 +220,7 @@ write_data          GKvisc_{Name}_T${{T}}KP1atm.data
 
 """)
         
-def MakeMoltemplateFile(Name, CWD, NumMols):
+def MakeMoltemplateFile(Name, CWD, NumMols, BoxL):
     if os.path.exists(f"{os.path.join(CWD, f'{Name}_system.lt')}"):
         print('Specified Moltemplate file already exists in this location, overwriting.')
         os.remove(f"{os.path.join(CWD, f'{Name}_system.lt')}")
@@ -231,15 +231,15 @@ import "{Name}.lt"  # <- defines the molecule type.
 
 # Periodic boundary conditions:
 write_once("Data Boundary") {{
-   0.0  80.00  xlo xhi
-   0.0  80.00  ylo yhi
-   0.0  80.00  zlo zhi
+   0.0  {BoxL}.00  xlo xhi
+   0.0  {BoxL}.00  ylo yhi
+   0.0  {BoxL}.00  zlo zhi
 }}
 
 ethylenes = new {Name} [{NumMols}]
 """)
                 
-def MakePackmolFile(Name, CWD, NumMols, Seed):
+def MakePackmolFile(Name, CWD, NumMols, Seed, BoxL):
     if os.path.exists(f"{os.path.join(CWD, f'{Name}.inp')}"):
         print('Packmol file already exists in this location, overwriting')
         os.remove(f"{os.path.join(CWD, f'{Name}.inp')}")
@@ -255,51 +255,114 @@ seed {Seed}
 
 structure {Name}.pdb
 number {NumMols} 
-inside cube 0. 0. 0. 50.
+inside cube 0. 0. 0. {BoxL}.
 end structure""")
 
+def CreateArrayJob(CWD, SimName, SimType, TopValue, BotValue, WALLTIME):
+    #Create an array job for each separate simulation
+
+    if os.path.exists(f"{join(CWD, f'{SimType}.pbs')}"):
+        print(f'Specified file already exists in this location, overwriting')
+        os.remove(f"{os.path.join(CWD, f'{SimType}.pbs')}")       
+
+    with open(join(CWD, f'{SimType}.pbs'), 'w') as file:
+        file.write(f"""#!/bin/bash
+#PBS -l select=1:ncpus=32:mem=62gb
+#PBS -l walltime={WALLTIME}
+#PBS -J {BotValue}-{TopValue}
+
+module load intel-suite/2020.2
+module load mpi/intel-2019.6.166
+
+cd /rds/general/user/eeo21/home/HIGHTHROUGHPUTSTUDIES/MDSIMULATIONEVLUATION//Run_${{PBS_ARRAY_INDEX}}
+mpiexec ~/tmp/bin/lmp -in {SimName}_${{PBS_ARRAY_INDEX}}.lammps
+""")
+    # os.rename(join(CWD, f'{SimType}.pbs'),  f'{SimType}.pbs')}")
+
 STARTINGDIR = deepcopy(getcwd())
+PYTHONPATH = 'python3'
+PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-print(Molecules)
-runcmd('mkdir Trajectory_Studies')
+NumMols = 100
+NumRuns = 100
+RunList = list(range(1, NumRuns+1))
+# Values for the array job
+TopValue = RunList[-1] 
+BotValue = RunList[0]
+BoxL = 80
+LOPLS = False
+WALLTIME = '07:59:59'
 
-for Molecule in Molecules:
-    FolderName = Molecule.split('.')[0]
-    chdir(join(getcwd(), 'Trajectory_Studies'))
-    runcmd(f'mkdir {FolderName}')
-    runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+# runcmd('mkdir Trajectory_Studies')
 
-    chdir(join(getcwd(), FolderName))
-    ### Make files for short vs long run convergence
-    """
-    - So we could run 100 trajectories for each molecule up to 10ns with 100 molecules
-    - We could generate trajectories for 500ps, 1ns, 2ns, and 4ns by
-    truncating each of the runs to the respective times
-    - We could then take between 5 and 10 random samples from the 100 trajectories
-    at each time length for varying numbers of trajectories
-    - Take an average of the samples as the predicted value, and use the extreme values 
-    or calculate the standard deviation as the uncertainty (2std for 95% confidence)
-    """
+# for Molecule in Molecules:
+#     FolderName = Molecule.split('.')[0]
+#     Path = join(STARTINGDIR, Molecule)
+#     MolObject = Chem.MolFromPDBFile(Path)
 
-    NumMols = 100
-    NumRuns = 100
-    RunList = list(range(1, NumRuns+1))
-    # Values for the array job
-    TopValue = RunList[-1] 
-    BotValue = RunList[0]
+#     if Molecule == 'squalane.pdb':
+#         SMILESString = 'CC(=CCCC(=CCCC(=CCCC=C(C)CCC=C(C)CCC=C(C)C)C)C)C'
+#     else:
+#         SMILESString = Chem.MolToSmiles(MolObject)
+    
+#     if LOPLS:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+#     else:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+    
+#     #Create initial Moltemplate file
+#     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+    
+#     #Enter Trajectory studies directory
+#     chdir(join(getcwd(), 'Trajectory_Studies'))
 
-    for x in RunList:
-        runcmd(f'mkdir Trajectory_{x}')
-        Trajectory = f'Trajectory_{x}'
-        # Copy pdb
-        runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
-        Seed = rnd.randint(0, 1E6)
-        MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed)
-        MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols)
-        MakeLAMMPSFile(Name=FolderName, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=313)
-        MakeLAMMPSFile(Name=FolderName, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=363)
+#     #Make Molecule Folder in Trajectory studies directory
+#     runcmd(f'mkdir {FolderName}')
 
-    chdir(STARTINGDIR)
+#     #Copy molecule pdb to molecule directory
+#     runcmd(f'cp "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+
+#     #Enter molecule directory
+#     chdir(join(getcwd(), FolderName))
+
+#     ### Make files for short vs long run convergence
+#     """
+#     - So we could run 100 trajectories for each molecule up to 10ns with 100 molecules
+#     - We could generate trajectories for 500ps, 1ns, 2ns, and 4ns by
+#     truncating each of the runs to the respective times
+#     - We could then take between 5 and 10 random samples from the 100 trajectories
+#     at each time length for varying numbers of trajectories
+#     - Take an average of the samples as the predicted value, and use the extreme values 
+#     or calculate the standard deviation as the uncertainty (2std for 95% confidence)
+#     """
+
+#     for x in RunList:
+#         runcmd(f'mkdir Run_{x}')
+#         Trajectory = f'Run_{x}'
+#         # Copy pdb
+#         runcmd(f'cp"{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
+#         # Copy lt file
+#         ltfile = f'{FolderName}.lt'
+#         runcmd(f'cp "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+#         # Set random seed
+#         Seed = rnd.randint(0, 1E6)
+
+#         # Make Packmol Input file
+#         MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
+#         # Make Moltemplate file
+#         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
+#         # Make Lammps Files
+#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=313)
+#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=363)
+#         # Make packmol coordinate file and LAMMPS data file
+#         chdir(join(getcwd(), Trajectory))
+#         if PYTHONPATH == 'python3':
+#             runcmd(f'packmol < {FolderName}.inp')
+#             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+
+#         # Return to starting directory
+#         chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
+#     chdir(STARTINGDIR)
 
 ### Files showing long term variations in viscosity and thermal conductivity prediction
 """
@@ -307,19 +370,89 @@ for Molecule in Molecules:
 uncertainty calculations.
 - Run at 40C and 100C 
 """
+STARTINGDIR = deepcopy(getcwd())
+PYTHONPATH = 'python3'
+PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
+Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
+NumRuns = 10
+RunList = list(range(1, NumRuns+1))
+# Values for the array job
+TopValue = RunList[-1]
+BotValue = RunList[0]
+BoxL = 80
+LOPLS = False
+WALLTIME = '07:59:59'
 
-### Files showing finite size effects
-"""
-Run experiments at 25, 50, 100, 250, 500 molecules
-Run 10 simulations for each number of molecules
-"""
+runcmd('mkdir LongTermVariations')
 
-### Comparison of GK vs EH methods for thermal and 
-"""
-Could use pressure/heat flux tensors from the 100 trajectory runs above
-Plot and compare the evolution of  
-"""
+for Molecule in Molecules:
+    FolderName = Molecule.split('.')[0]
+    Path = join(STARTINGDIR, Molecule)
+    MolObject = Chem.MolFromPDBFile(Path)
 
+    if Molecule == 'squalane.pdb':
+        SMILESString = 'CC(=CCCC(=CCCC(=CCCC=C(C)CCC=C(C)CCC=C(C)C)C)C)C'
+    else:
+        SMILESString = Chem.MolToSmiles(MolObject)
+    
+    if LOPLS:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi {SMILESString} -n {FolderName} -l -c"
+    else:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi {SMILESString} -n {FolderName} -c"
+    
+    #Create initial Moltemplate file
+    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+    
+    #Enter Trajectory studies directory
+    chdir(join(getcwd(), 'LongTermVariations'))
 
+    #Make Molecule Folder in Trajectory studies directory
+    runcmd(f'mkdir {FolderName}')
 
+    #Copy molecule pdb to molecule directory
+    runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
+    #Enter molecule directory
+    chdir(join(getcwd(), FolderName))
+
+    NumMols = [25, 50, 100, 250, 500]
+    for NumMol in NumMols:
+        runcmd(f'mkdir NumMols_{NumMol}')
+        chdir(join(getcwd(), f'NumMols_{NumMol}'))
+
+        for x in RunList:
+            runcmd(f'mkdir Run_{x}')
+            Run = f'Run_{x}'
+            # Copy pdb
+            runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Run, Molecule)}')
+            # Copy lt file
+            ltfile = f'{FolderName}.lt'
+            runcmd(f'copy "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Run, ltfile)}')
+            # Set random seed
+            Seed = rnd.randint(0, 1E6)
+
+            # Make Packmol Input file
+            MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, Seed=Seed, BoxL=BoxL)
+            # Make Moltemplate file
+            MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, BoxL=BoxL)
+            # Make Lammps Files
+            MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=10000000, Temp=313)
+            MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=10000000, Temp=363)
+            # Make packmol coordinate file and LAMMPS data file
+            chdir(join(getcwd(), Run))
+            if PYTHONPATH == 'python3':
+                runcmd(f'packmol < {FolderName}.inp')
+                runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+
+            # Return to starting directory
+            chdir(join(STARTINGDIR, 'LongTermVariations', FolderName, f'NumMols_{NumMol}'))
+    
+        chdir(join(STARTINGDIR, 'LongTermVariations', FolderName))
+    
+    chdir(STARTINGDIR)
+
+# ### Files showing finite size effects
+# """
+# Run experiments at 25, 50, 100, 250, 500 molecules
+# Run 10 simulations for each number of molecules for 10ns
+# """
