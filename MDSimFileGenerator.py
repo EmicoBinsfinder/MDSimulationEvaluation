@@ -380,6 +380,24 @@ for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
     Path = join(STARTINGDIR, Molecule)
     MolObject = Chem.MolFromPDBFile(Path)
+
+    if Molecule == 'squalane.pdb':
+        SMILESString = 'CC(=CCCC(=CCCC(=CCCC=C(C)CCC=C(C)CCC=C(C)C)C)C)C'
+    else:
+        SMILESString = Chem.MolToSmiles(MolObject)
+
+    if LOPLS:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+    else:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+
+    #Create initial Moltemplate file
+    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+
+for Molecule in Molecules:
+    FolderName = Molecule.split('.')[0]
+    Path = join(STARTINGDIR, Molecule)
+    MolObject = Chem.MolFromPDBFile(Path)
    
     #Enter Trajectory studies directory
     chdir(join(getcwd(), 'FiniteSizeEffects'))
@@ -443,6 +461,7 @@ uncertainty calculations.
 """
 
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
+NumMols = 100
 NumRuns = 10
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
