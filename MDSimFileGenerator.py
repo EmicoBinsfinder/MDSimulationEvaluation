@@ -298,7 +298,7 @@ def GetMolMass(mol):
 
 def CalcBoxLen(MolMass, Dens, NumMols):
     # Very conservative implementation of Packmol volume guesser
-    BoxL = (((MolMass * NumMols * 2)/ Dens) * 1.25) ** (1./3.)
+    BoxL = (((MolMass * NumMols * 2)/ Dens) * 1.5) ** (1./3.)
     BoxLRounded = round(BoxL, 2)
     return BoxLRounded
 
@@ -329,9 +329,9 @@ for Molecule in Molecules:
         SMILESString = Chem.MolToSmiles(MolObject)
 
     if LOPLS:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi {SMILESString} -n {FolderName} -l -c"
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
     else:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi {SMILESString} -n {FolderName} -c"
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
 
     #Create initial Moltemplate file
     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
