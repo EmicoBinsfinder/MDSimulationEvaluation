@@ -9,6 +9,7 @@ from os import listdir
 import random as rnd
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 import re
+from rdkit.Chem import AllChem
 
 def runcmd(cmd, verbose = False, *args, **kwargs):
     #bascially allows python to run a bash command, and the code makes sure 
@@ -233,9 +234,9 @@ import "{Name}.lt"  # <- defines the molecule type.
 
 # Periodic boundary conditions:
 write_once("Data Boundary") {{
-   0.0  {BoxL}  xlo xhi
-   0.0  {BoxL}  ylo yhi
-   0.0  {BoxL}  zlo zhi
+   0.0  {BoxL}.00  xlo xhi
+   0.0  {BoxL}.00  ylo yhi
+   0.0  {BoxL}.00  zlo zhi
 }}
 
 ethylenes = new {Name} [{NumMols}]
@@ -299,13 +300,13 @@ def GetMolMass(mol):
 def CalcBoxLen(MolMass, Dens, NumMols):
     # Very conservative implementation of Packmol volume guesser
     BoxL = (((MolMass * NumMols * 2)/ Dens) * 1.5) ** (1./3.)
-    BoxLRounded = round(BoxL, 2)
+    BoxLRounded = int(BoxL)
     return BoxLRounded
 
 CopyCommand = 'cp'
 STARTINGDIR = deepcopy(getcwd())
 PYTHONPATH = 'python3'
-PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
+#PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
 NumMols = 100
 NumRuns = 100
@@ -313,7 +314,7 @@ RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
 BotValue = RunList[0]
-LOPLS = False
+LOPLS = True
 WALLTIME = '07:59:59'
 
 runcmd('mkdir Trajectory_Studies')
@@ -323,32 +324,18 @@ for Molecule in Molecules:
     Path = join(STARTINGDIR, Molecule)
     MolObject = Chem.MolFromPDBFile(Path)
 
-    if Molecule == 'squalane.pdb':
-        SMILESString = 'CC(=CCCC(=CCCC(=CCCC=C(C)CCC=C(C)CCC=C(C)C)C)C)C'
+    if Molecule == '1-methylnapthalene.pdb':
+        SMILESString = 'CC1=CC=CC2=CC=CC=C12'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
-
+    
     if LOPLS:
         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
     else:
         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
-
-    #Create initial Moltemplate file
+  
     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
 
-    MolMass = GetMolMass(MolObject)
-    BoxL = CalcBoxLen(MolMass=MolMass, Dens=0.8, NumMols=NumMols)
-
-for Molecule in Molecules:
-    FolderName = Molecule.split('.')[0]
-    Path = join(STARTINGDIR, Molecule)
-    MolObject = Chem.MolFromPDBFile(Path)
-
-    if Molecule == 'squalane.pdb':
-        SMILESString = 'CC(=CCCC(=CCCC(=CCCC=C(C)CCC=C(C)CCC=C(C)C)C)C)C'
-    else:
-        SMILESString = Chem.MolToSmiles(MolObject)
-  
     #Enter Trajectory studies directory
     chdir(join(getcwd(), 'Trajectory_Studies'))
 
@@ -408,8 +395,9 @@ for Molecule in Molecules:
         # Return to starting directory
         chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
     chdir(STARTINGDIR)
-    
 
+    runcmd(f'del {FolderName}.lt')
+    
 ## Files showing finite size effects
 """
 Run experiments at 25, 50, 100, 250, 500 molecules
@@ -436,6 +424,11 @@ for Molecule in Molecules:
         SMILESString = 'CC(=CCCC(=CCCC(=CCCC=C(C)CCC=C(C)CCC=C(C)C)C)C)C'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
+
+    if LOPLS:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+    else:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
    
     #Enter Trajectory studies directory
     chdir(join(getcwd(), 'FiniteSizeEffects'))
