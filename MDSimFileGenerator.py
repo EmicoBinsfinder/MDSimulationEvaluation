@@ -172,12 +172,26 @@ variable    		A2m equal 1.0e-10
 variable    		fs2s equal 1.0e-15 			
 variable			Pas2cP equal 1.0e+3			
 variable    		convert equal ${{atm2Pa}}*${{atm2Pa}}*${{fs2s}}*${{A2m}}*${{A2m}}*${{A2m}}*${{Pas2cP}}
+variable            convertWk equal ${{kCal2J}}*${{kCal2J}}/${{fs2s}}/${{A2m}}
 
 ##################################### Viscosity Calculation #####################################################
 timestep     		${{dt}}						# define time step [fs]
 
 compute         	TT all temp
 compute         	myP all pressure TT
+
+###### Thermal Conductivity Calculations 
+
+compute         myKE all ke/atom
+compute         myPE all pe/atom
+compute         myStress all stress/atom NULL virial
+
+# compute heat flux vectors
+compute         flux all heat/flux myKE myPE myStress
+variable        Jx equal c_flux[1]/vol
+variable        Jy equal c_flux[2]/vol
+variable        Jz equal c_flux[3]/vol
+
 fix             	1 all nve
 fix             	2 all langevin ${{eqmT}} ${{eqmT}} 100.0 482648
 
@@ -188,7 +202,7 @@ variable     		myPxy equal c_myP[4]
 variable     		myPxz equal c_myP[5]
 variable     		myPyz equal c_myP[6]
 
-fix             	3 all ave/time 1 1 1 v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOne111_{Name}_T${{T}}KP1atm.out
+fix             	3 all ave/time 1 1 1 v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one #file Stress_AVGOne111_{Name}_T${{T}}KP1atm.out
 fix             	4 all ave/time $s $p $d v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOnespd_{Name}_T${{T}}KP1atm.out
 
 variable    kB equal 1.3806504e-23    # [J/K] Boltzmann
@@ -205,14 +219,28 @@ variable     v11 equal trap(f_SS[3])*${{scale}}
 variable     v22 equal trap(f_SS[4])*${{scale}}
 variable     v33 equal trap(f_SS[5])*${{scale}}
 
+fix          JJ all ave/correlate $s $p $d &
+             c_flux[1] c_flux[2] c_flux[3] type auto &
+             file profile.heatflux ave running
+
+
+variable        scale equal ${{convertWk}}/${{kB}}/$T/$T/$V*$s*${{dt}}
+variable        k11 equal trap(f_JJ[3])*${{scale}}
+variable        k22 equal trap(f_JJ[4])*${{scale}}
+variable        k33 equal trap(f_JJ[5])*${{scale}}
+
 thermo       		$d
-thermo_style custom step temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol
-fix thermo_print all print $d "$(temp) $(press) $(v_myPxy) $(v_myPxz) $(v_myPyz) $(v_v11) $(v_v22) $(v_v33) $(vol)" &
+thermo_style custom step temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol v_Jx v_Jy v_Jz v_k11 v_k22 v_k33 v_kappa
+fix thermo_print all print $d "$(temp) $(press) $(v_myPxy) $(v_myPxz) $(v_myPyz) $(v_v11) $(v_v22) $(v_v33) $(vol) $(v_Jx) $(v_Jy) $(v_Jz) $(v_k11) $(v_k22 $(v_k33) $(v_kappa)" &
     append thermoNVE_{Name}_T${{T}}KP1atm.out screen no title "# temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol"
 
 # Dump all molecule coordinates
 
-dump         1 all custom $d All_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
+# save thermal conductivity to file
+variable     kav equal (v_k11+v_k22+v_k33)/3.0
+fix          fxave all ave/time $d 1 $d v_kav file lamda.profile
+
+#dump         1 all custom $d All_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
 run          {GKRuntime}
 variable     v equal (v_v11+v_v22+v_v33)/3.0
 variable     ndens equal count(all)/vol
@@ -222,7 +250,7 @@ write_restart   	GKvisc_{Name}_T${{T}}KP1atm.restart
 write_data          GKvisc_{Name}_T${{T}}KP1atm.data
 
 """)
-        
+                
 def MakeMoltemplateFile(Name, CWD, NumMols, BoxL):
     if os.path.exists(f"{os.path.join(CWD, f'{Name}_system.lt')}"):
         print('Specified Moltemplate file already exists in this location, overwriting.')
@@ -277,9 +305,10 @@ def CreateArrayJob(CWD, SimName, SimType, TopValue, BotValue, WALLTIME):
 module load intel-suite/2020.2
 module load mpi/intel-2019.6.166
 
-cd {join(CWD, 'Run_${{PBS_ARRAY_INDEX}}')}
+cd {join(CWD, f'Run_${{PBS_ARRAY_INDEX}}')}
 mpiexec ~/tmp/bin/lmp -in {SimName}_${{PBS_ARRAY_INDEX}}.lammps
 """)
+        
     # os.rename(join(CWD, f'{SimType}.pbs'),  f'{SimType}.pbs')}")
 
 def GetMolMass(mol):
@@ -299,7 +328,7 @@ def GetMolMass(mol):
 
 def CalcBoxLen(MolMass, Dens, NumMols):
     # Very conservative implementation of Packmol volume guesser
-    BoxL = (((MolMass * NumMols * 2)/ Dens) * 1.5) ** (1./3.)
+    BoxL = (((MolMass * NumMols * 2)/ Dens) * 2) ** (1./3.)
     BoxLRounded = int(BoxL)
     return BoxLRounded
 
@@ -334,16 +363,16 @@ for Molecule in Molecules:
     else:
         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
   
-    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+    # runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
 
     #Enter Trajectory studies directory
     chdir(join(getcwd(), 'Trajectory_Studies'))
 
     #Make Molecule Folder in Trajectory studies directory
-    runcmd(f'mkdir {FolderName}')
+    # runcmd(f'mkdir {FolderName}')
 
     #Copy molecule pdb to molecule directory
-    runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+    # runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
     #Enter molecule directory
     chdir(join(getcwd(), FolderName))
@@ -372,25 +401,25 @@ for Molecule in Molecules:
         runcmd(f'mkdir Run_{x}')
         Trajectory = f'Run_{x}'
         # Copy pdb
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
+        # runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
         # Copy lt file
-        ltfile = f'{FolderName}.lt'
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+        # ltfile = f'{FolderName}.lt'
+        # runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
         # Set random seed
         Seed = rnd.randint(0, 1E6)
 
         # Make Packmol Input file
-        MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
+        # MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
         # Make Moltemplate file
-        MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
+        # MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
         # Make Lammps Files
         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=313)
         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=373)
         # Make packmol coordinate file and LAMMPS data file
         chdir(join(getcwd(), Trajectory))
-        if PYTHONPATH == 'python3':
-            runcmd(f'packmol < {FolderName}.inp')
-            runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+        # if PYTHONPATH == 'python3':
+        #     runcmd(f'packmol < {FolderName}.inp')
+        #     runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
         # Return to starting directory
         chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
@@ -413,7 +442,7 @@ BotValue = RunList[0]
 LOPLS = True
 WALLTIME = '07:59:59'
 
-runcmd('mkdir FiniteSizeEffects')
+# runcmd('mkdir FiniteSizeEffects')
 
 for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
@@ -434,10 +463,10 @@ for Molecule in Molecules:
     chdir(join(getcwd(), 'FiniteSizeEffects'))
 
     #Make Molecule Folder in Trajectory studies directory
-    runcmd(f'mkdir {FolderName}')
+    # runcmd(f'mkdir {FolderName}')
 
     #Copy molecule pdb to molecule directory
-    runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+    # runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
     #Enter molecule directory
     chdir(join(getcwd(), FolderName))
@@ -446,7 +475,7 @@ for Molecule in Molecules:
     for NumMol in NumMols:
         MolMass = GetMolMass(MolObject)
         BoxL = CalcBoxLen(MolMass=MolMass, Dens=0.8, NumMols=NumMol)
-        runcmd(f'mkdir NumMols_{NumMol}')
+        # runcmd(f'mkdir NumMols_{NumMol}')
         chdir(join(getcwd(), f'NumMols_{NumMol}'))
 
         CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
@@ -456,28 +485,28 @@ for Molecule in Molecules:
                 TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
         
         for x in RunList:
-            runcmd(f'mkdir Run_{x}')
+            # runcmd(f'mkdir Run_{x}')
             Run = f'Run_{x}'
             # Copy pdb
-            runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Run, Molecule)}')
+            # runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Run, Molecule)}')
             # Copy lt file
-            ltfile = f'{FolderName}.lt'
-            runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Run, ltfile)}')
+            # ltfile = f'{FolderName}.lt'
+            # runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Run, ltfile)}')
             # Set random seed
             Seed = rnd.randint(0, 1E6)
 
             # Make Packmol Input file
-            MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, Seed=Seed, BoxL=BoxL)
+            # MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, Seed=Seed, BoxL=BoxL)
             # Make Moltemplate file
-            MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, BoxL=BoxL)
+            # MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, BoxL=BoxL)
             # Make Lammps Files
             MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=5000000, Temp=313)
             MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=5000000, Temp=373)
             # Make packmol coordinate file and LAMMPS data file
             chdir(join(getcwd(), Run))
-            if PYTHONPATH == 'python3':
-                runcmd(f'packmol < {FolderName}.inp')
-                runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+            # if PYTHONPATH == 'python3':
+            #     runcmd(f'packmol < {FolderName}.inp')
+            #     runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
             # Return to starting directory
             chdir(join(STARTINGDIR, 'FiniteSizeEffects', FolderName, f'NumMols_{NumMol}'))
@@ -504,7 +533,7 @@ BotValue = RunList[0]
 LOPLS = False
 WALLTIME = '07:59:59'
 
-runcmd('mkdir LongSimEffects')
+# runcmd('mkdir LongSimEffects')
 
 for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
@@ -519,14 +548,14 @@ for Molecule in Molecules:
     MolMass = GetMolMass(MolObject)
     BoxL = CalcBoxLen(MolMass=MolMass, Dens=0.8, NumMols=NumMols)
   
-    #Enter Trajectory studies directory
+    #Enter Long Sim Effects studies directory
     chdir(join(getcwd(), 'LongSimEffects'))
 
     #Make Molecule Folder in Trajectory studies directory
-    runcmd(f'mkdir {FolderName}')
+    # runcmd(f'mkdir {FolderName}')
 
     #Copy molecule pdb to molecule directory
-    runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+    # runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
     #Enter molecule directory
     chdir(join(getcwd(), FolderName))
@@ -538,28 +567,28 @@ for Molecule in Molecules:
                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
 
     for x in RunList:
-        runcmd(f'mkdir Run_{x}')
+        # runcmd(f'mkdir Run_{x}')
         Trajectory = f'Run_{x}'
         # Copy pdb
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
+        # runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
         # Copy lt file
-        ltfile = f'{FolderName}.lt'
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+        # ltfile = f'{FolderName}.lt'
+        # runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
         # Set random seed
         Seed = rnd.randint(0, 1E6)
 
         # Make Packmol Input file
-        MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
+        # MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
         # Make Moltemplate file
-        MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
+        # MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
         # Make Lammps Files
         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=100000000, Temp=313)
         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=100000000, Temp=373)
         # Make packmol coordinate file and LAMMPS data file
-        chdir(join(getcwd(), Trajectory))
-        if PYTHONPATH == 'python3':
-            runcmd(f'packmol < {FolderName}.inp')
-            runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+        # chdir(join(getcwd(), Trajectory))
+        # if PYTHONPATH == 'python3':
+        #     runcmd(f'packmol < {FolderName}.inp')
+        #     runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
         # Return to starting directory
         chdir(join(STARTINGDIR, 'LongSimEffects', FolderName))
