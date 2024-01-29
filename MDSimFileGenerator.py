@@ -348,174 +348,178 @@ BotValue = RunList[0]
 LOPLS = True
 WALLTIME = '48:00:00'
 
-runcmd('mkdir Trajectory_Studies')
+# runcmd('mkdir Trajectory_Studies')
 
-for Molecule in Molecules:
-    FolderName = Molecule.split('.')[0]
-    Path = join(STARTINGDIR, Molecule)
-    MolObject = Chem.MolFromPDBFile(Path)
+# for Molecule in Molecules:
+#     FolderName = Molecule.split('.')[0]
+#     Path = join(STARTINGDIR, Molecule)
+#     MolObject = Chem.MolFromPDBFile(Path)
 
-    if Molecule == '1-methylnapthalene.pdb':
-        SMILESString = 'CC1=CC=CC2=CC=CC=C12'
-    else:
-        SMILESString = Chem.MolToSmiles(MolObject)
+#     if Molecule == '1-methylnapthalene.pdb':
+#         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
+#     elif Molecule == 'squalene.pdb':
+#          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
+#     else:
+#         SMILESString = Chem.MolToSmiles(MolObject)
     
-    if LOPLS:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
-    else:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+#     if LOPLS:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+#     else:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
   
-    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+#     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
 
-    #Enter Trajectory studies directory
-    chdir(join(getcwd(), 'Trajectory_Studies'))
+#     #Enter Trajectory studies directory
+#     chdir(join(getcwd(), 'Trajectory_Studies'))
 
-    #Make Molecule Folder in Trajectory studies directory
-    runcmd(f'mkdir {FolderName}')
+#     #Make Molecule Folder in Trajectory studies directory
+#     runcmd(f'mkdir {FolderName}')
 
-    #Copy molecule pdb to molecule directory
-    runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+#     #Copy molecule pdb to molecule directory
+#     runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
-    #Enter molecule directory
-    chdir(join(getcwd(), FolderName))
+#     #Enter molecule directory
+#     chdir(join(getcwd(), FolderName))
 
-    CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
-                   TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+#     CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
+#                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
     
-    CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
-                   TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+#     CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
+#                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
 
-    ### Make files for short vs long run convergence
-    """
-    - So we could run 100 trajectories for each molecule up to 10ns with 100 molecules
-    - We could generate trajectories for 500ps, 1ns, 2ns, and 4ns by
-    truncating each of the runs to the respective times
-    - We could then take between 5 and 10 random samples from the 100 trajectories
-    at each time length for varying numbers of trajectories
-    - Take an average of the samples as the predicted value, and use the extreme values 
-    or calculate the standard deviation as the uncertainty (2std for 95% confidence)
-    """
+#     ### Make files for short vs long run convergence
+#     """
+#     - So we could run 100 trajectories for each molecule up to 10ns with 100 molecules
+#     - We could generate trajectories for 500ps, 1ns, 2ns, and 4ns by
+#     truncating each of the runs to the respective times
+#     - We could then take between 5 and 10 random samples from the 100 trajectories
+#     at each time length for varying numbers of trajectories
+#     - Take an average of the samples as the predicted value, and use the extreme values 
+#     or calculate the standard deviation as the uncertainty (2std for 95% confidence)
+#     """
 
-    MolMass = GetMolMass(MolObject)
-    BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
+#     MolMass = GetMolMass(MolObject)
+#     BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
 
-    for x in RunList:
-        runcmd(f'mkdir Run_{x}')
-        Trajectory = f'Run_{x}'
-        # Copy pdb
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
-        # Copy lt file
-        ltfile = f'{FolderName}.lt'
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
-        # Set random seed
-        Seed = rnd.randint(0, 1E6)
+#     for x in RunList:
+#         runcmd(f'mkdir Run_{x}')
+#         Trajectory = f'Run_{x}'
+#         # Copy pdb
+#         runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
+#         # Copy lt file
+#         ltfile = f'{FolderName}.lt'
+#         runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+#         # Set random seed
+#         Seed = rnd.randint(0, 1E6)
 
-        # Make Packmol Input file
-        MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
-        # Make Moltemplate file
-        MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
-        # Make Lammps Files
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=313)
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=373)
-        # Make packmol coordinate file and LAMMPS data file
-        chdir(join(getcwd(), Trajectory))
-        if PYTHONPATH == 'python3':
-            runcmd(f'packmol < {FolderName}.inp')
-            runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+#         # Make Packmol Input file
+#         MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
+#         # Make Moltemplate file
+#         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
+#         # Make Lammps Files
+#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=313)
+#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=373)
+#         # Make packmol coordinate file and LAMMPS data file
+#         chdir(join(getcwd(), Trajectory))
+#         if PYTHONPATH == 'python3':
+#             runcmd(f'packmol < {FolderName}.inp')
+#             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
-        # Return to starting directory
-        chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
-    chdir(STARTINGDIR)
+#         # Return to starting directory
+#         chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
+#     chdir(STARTINGDIR)
 
-    runcmd(f'del {FolderName}.lt')
+#     runcmd(f'del {FolderName}.lt')
     
-## Files showing finite size effects
-"""
-Run experiments at 25, 50, 100, 250, 500 molecules
-Run 10 simulations for each number of molecules for 10ns
-"""
+# ## Files showing finite size effects
+# """
+# Run experiments at 25, 50, 100, 250, 500 molecules
+# Run 10 simulations for each number of molecules for 10ns
+# """
 
-Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-NumRuns = 10
-RunList = list(range(1, NumRuns+1))
-# Values for the array job
-TopValue = RunList[-1]
-BotValue = RunList[0]
-LOPLS = True
-WALLTIME = '72:00:00'
+# Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
+# NumRuns = 10
+# RunList = list(range(1, NumRuns+1))
+# # Values for the array job
+# TopValue = RunList[-1]
+# BotValue = RunList[0]
+# LOPLS = True
+# WALLTIME = '72:00:00'
 
-runcmd('mkdir FiniteSizeEffects')
+# runcmd('mkdir FiniteSizeEffects')
 
-for Molecule in Molecules:
-    FolderName = Molecule.split('.')[0]
-    Path = join(STARTINGDIR, Molecule)
-    MolObject = Chem.MolFromPDBFile(Path)
+# for Molecule in Molecules:
+#     FolderName = Molecule.split('.')[0]
+#     Path = join(STARTINGDIR, Molecule)
+#     MolObject = Chem.MolFromPDBFile(Path)
 
-    if Molecule == '1-methylnapthalene.pdb':
-        SMILESString = 'CC1=CC=CC2=CC=CC=C12'
-    else:
-        SMILESString = Chem.MolToSmiles(MolObject)
+#     if Molecule == '1-methylnapthalene.pdb':
+#         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
+#     elif Molecule == 'squalene.pdb':
+#          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
+#     else:
+#         SMILESString = Chem.MolToSmiles(MolObject)
 
-    if LOPLS:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
-    else:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+#     if LOPLS:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+#     else:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
    
-    #Enter Trajectory studies directory
-    chdir(join(getcwd(), 'FiniteSizeEffects'))
+#     #Enter Trajectory studies directory
+#     chdir(join(getcwd(), 'FiniteSizeEffects'))
 
-    #Make Molecule Folder in Trajectory studies directory
-    runcmd(f'mkdir {FolderName}')
+#     #Make Molecule Folder in Trajectory studies directory
+#     runcmd(f'mkdir {FolderName}')
 
-    #Copy molecule pdb to molecule directory
-    runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+#     #Copy molecule pdb to molecule directory
+#     runcmd(f'copy "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
-    #Enter molecule directory
-    chdir(join(getcwd(), FolderName))
+#     #Enter molecule directory
+#     chdir(join(getcwd(), FolderName))
 
-    NumMols = [25, 50, 100, 250, 500]
-    for NumMol in NumMols:
-        MolMass = GetMolMass(MolObject)
-        BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMol)
-        runcmd(f'mkdir NumMols_{NumMol}')
-        chdir(join(getcwd(), f'NumMols_{NumMol}'))
+#     NumMols = [25, 50, 100, 250, 500]
+#     for NumMol in NumMols:
+#         MolMass = GetMolMass(MolObject)
+#         BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMol)
+#         runcmd(f'mkdir NumMols_{NumMol}')
+#         chdir(join(getcwd(), f'NumMols_{NumMol}'))
 
-        CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
-                TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+#         CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
+#                 TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
         
-        CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
-                TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+#         CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
+#                 TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
         
-        for x in RunList:
-            runcmd(f'mkdir Run_{x}')
-            Run = f'Run_{x}'
-            # Copy pdb
-            runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Run, Molecule)}')
-            # Copy lt file
-            ltfile = f'{FolderName}.lt'
-            runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Run, ltfile)}')
-            # Set random seed
-            Seed = rnd.randint(0, 1E6)
+#         for x in RunList:
+#             runcmd(f'mkdir Run_{x}')
+#             Run = f'Run_{x}'
+#             # Copy pdb
+#             runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Run, Molecule)}')
+#             # Copy lt file
+#             ltfile = f'{FolderName}.lt'
+#             runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Run, ltfile)}')
+#             # Set random seed
+#             Seed = rnd.randint(0, 1E6)
 
-            # Make Packmol Input file
-            MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, Seed=Seed, BoxL=BoxL)
-            # Make Moltemplate file
-            MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, BoxL=BoxL)
-            # Make Lammps Files
-            MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=5000000, Temp=313)
-            MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=5000000, Temp=373)
-            # Make packmol coordinate file and LAMMPS data file
-            chdir(join(getcwd(), Run))
-            if PYTHONPATH == 'python3':
-                runcmd(f'packmol < {FolderName}.inp')
-                runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+#             # Make Packmol Input file
+#             MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, Seed=Seed, BoxL=BoxL)
+#             # Make Moltemplate file
+#             MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Run), NumMols=NumMol, BoxL=BoxL)
+#             # Make Lammps Files
+#             MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=5000000, Temp=313)
+#             MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Run), GKRuntime=5000000, Temp=373)
+#             # Make packmol coordinate file and LAMMPS data file
+#             chdir(join(getcwd(), Run))
+#             if PYTHONPATH == 'python3':
+#                 runcmd(f'packmol < {FolderName}.inp')
+#                 runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
-            # Return to starting directory
-            chdir(join(STARTINGDIR, 'FiniteSizeEffects', FolderName, f'NumMols_{NumMol}'))
+#             # Return to starting directory
+#             chdir(join(STARTINGDIR, 'FiniteSizeEffects', FolderName, f'NumMols_{NumMol}'))
     
-        chdir(join(STARTINGDIR, 'FiniteSizeEffects', FolderName))
+#         chdir(join(STARTINGDIR, 'FiniteSizeEffects', FolderName))
     
-    chdir(STARTINGDIR)
+#     chdir(STARTINGDIR)
     
     
 ### Files showing long term variations in viscosity and thermal conductivity prediction
@@ -532,7 +536,7 @@ RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1]
 BotValue = RunList[0]
-LOPLS = False
+LOPLS = True
 WALLTIME = '72:00:00'
 
 runcmd('mkdir LongSimEffects')
@@ -544,6 +548,8 @@ for Molecule in Molecules:
 
     if Molecule == '1-methylnapthalene.pdb':
         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
+    elif Molecule == 'squalene.pdb':
+        SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
 
@@ -569,7 +575,7 @@ for Molecule in Molecules:
                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
 
     for x in RunList:
-        # runcmd(f'mkdir Run_{x}')
+        runcmd(f'mkdir Run_{x}')
         Trajectory = f'Run_{x}'
         # Copy pdb
         runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
