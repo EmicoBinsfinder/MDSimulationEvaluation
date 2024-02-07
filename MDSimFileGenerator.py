@@ -548,10 +548,19 @@ for Molecule in Molecules:
 
     if Molecule == '1-methylnapthalene.pdb':
         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
-    elif Molecule == 'squalene.pdb':
+    elif Molecule == 'squalane.pdb':
         SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
+
+    print(SMILESString)
+
+    if LOPLS:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+    else:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+
+    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
 
     MolMass = GetMolMass(MolObject)
     BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
