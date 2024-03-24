@@ -23,6 +23,8 @@ def runcmd(cmd, verbose = False, *args, **kwargs):
 
 def MakeLAMMPSFile(Name, CWD, GKRuntime, Temp, ID):
     
+    VelNumber = rnd.randint(0, 1000000)
+
     if os.path.exists(f"{os.path.join(CWD, f'{Name}_system_{Temp}K_{ID}.lammps')}"):
         print('Specified LAMMPS file already exists in this location, overwriting.')
         os.remove(f"{os.path.join(CWD, f'{Name}_system_{Temp}K_{ID}.lammps')}")
@@ -49,6 +51,7 @@ dihedral_style 		opls
 improper_style     	harmonic
 pair_modify 		mix geometric tail yes
 special_bonds   	lj/coul 0.0 0.0 0.5
+kspace_style        pppm 0.00001
 
 # Read lammps data file consist of molecular topology and forcefield info
 read_data       	{Name}_system.data
@@ -67,7 +70,7 @@ variable    		d equal $s*$p  						# Nfreq, dump interval
 variable 			rho equal density
 
 # Minimize system at target temperature using the default conjugate gradient method
-velocity        	all create ${{eqmT}} 482648
+velocity        	all create ${{eqmT}} {VelNumber}
 fix             	min all nve
 thermo          	10
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
@@ -84,20 +87,6 @@ unfix           	min
 reset_timestep  	0
 neigh_modify 		every 1 delay 0 check yes
 
-# NVT at high temperature
-fix             	nvt1000K all nvt temp 1000.0 1000.0 100.0
-thermo			    $d
-thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
-fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
-					append thermoNVT1000K_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-# dump            	1 all custom $d NVT1000K_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
-# dump_modify     	1 sort id
-run            		250000
-# undump          	1
-unfix			    nvt1000K
-unfix               thermo_print
-write_restart   	NVT_{Name}_T1000KP1atm.restart
-
 # NPT: Isothermal-isobaric ensemble to set the desired pressure; compute average density at that pressure
 fix 				NPT all npt temp ${{eqmT}} ${{eqmT}} 100.0 iso ${{eqmP}} ${{eqmP}} 25.0
 fix             	dave all ave/time $s $p $d v_rho ave running file eqmDensity_{Name}_T${{T}}KP1atm.out
@@ -105,7 +94,7 @@ thermo				$d
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
 fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
 					append thermoNPT_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-# dump            	1 all custom $d NPT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
+dump            	1 all custom $d NPT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
 # dump_modify     	1 sort id
 run					1000000
 # undump          	1
@@ -123,31 +112,14 @@ thermo         		$d
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
 fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
 					append thermoNVT_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-# dump            	1 all custom $d NVT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
+dump            	1 all custom $d NVT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
 # dump_modify     	1 sort id
 run					500000
-# undump          	1
+undump          	1
 unfix				NVT
 unfix           	adjust
 unfix               thermo_print
 write_restart  		NVT_{Name}_T${{T}}KP1atm.restart
-
-# NVE: Microcanonical ensemble to explore the configuration space at constant T and V; relax
-fix	       			NVE all nve
-fix 				thermostat all langevin ${{eqmT}} ${{eqmT}} 100.0 39847 
-thermo          	$d
-thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
-
-fix 			thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
-			append thermoNVE_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-
-run             	250000
-
-unfix           	NVE
-
-unfix 			thermostat
-
-unfix               	thermo_print
 
 # Output the state generated that is needed to shear the molecules
 
@@ -166,15 +138,14 @@ variable    		dt equal 1.0				# time step [fs]
 variable 		    V equal vol
 
 # convert from LAMMPS real units to SI
-variable    		kB equal 1.3806504e-23    	
-variable    		atm2Pa equal 101325.0	
-variable            kCal2J equal 4186.0/6.02214e23	
+variable    		kB equal 1.3806504e-23
+variable            kCal2J equal 4186.0/6.02214e23
+variable    		atm2Pa equal 101325.0		
 variable    		A2m equal 1.0e-10 			
 variable    		fs2s equal 1.0e-15 			
 variable			Pas2cP equal 1.0e+3			
-variable    		convert equal ${{atm2Pa}}*${{atm2Pa}}*${{fs2s}}*${{A2m}}*${{A2m}}*${{A2m}}*${{Pas2cP}}
+variable    		convert equal ${{atm2Pa}}*${{atm2Pa}}*${{fs2s}}*${{A2m}}*${{A2m}}*${{A2m}}
 variable            convertWk equal ${{kCal2J}}*${{kCal2J}}/${{fs2s}}/${{A2m}}
-
 
 ##################################### Viscosity Calculation #####################################################
 timestep     		${{dt}}						# define time step [fs]
@@ -207,12 +178,6 @@ variable     		myPyz equal c_myP[6]
 fix             	3 all ave/time 1 1 1 v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one #file Stress_AVGOne111_{Name}_T${{T}}KP1atm.out
 fix             	4 all ave/time $s $p $d v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOnespd_{Name}_T${{T}}KP1atm.out
 
-variable    kB equal 1.3806504e-23    # [J/K] Boltzmann
-variable    atm2Pa equal 101325.0
-variable    A2m equal 1.0e-10
-variable    fs2s equal 1.0e-15
-variable    convert equal ${{atm2Pa}}*${{atm2Pa}}*${{fs2s}}*${{A2m}}*${{A2m}}*${{A2m}}
-
 fix          SS all ave/correlate $s $p $d &
              v_myPxy v_myPxz v_myPyz type auto file S0St.dat ave running
 
@@ -225,32 +190,43 @@ fix          JJ all ave/correlate $s $p $d &
              c_flux[1] c_flux[2] c_flux[3] type auto &
              file profile.heatflux ave running
 
+variable        scaleWk equal ${{convertWk}}/${{kB}}/$T/$T/$V*$s*${{dt}}
+variable        k11 equal trap(f_JJ[3])*${{scaleWk}}
+variable        k22 equal trap(f_JJ[4])*${{scaleWk}}
+variable        k33 equal trap(f_JJ[5])*${{scaleWk}}
 
-variable        scale equal ${{convertWk}}/${{kB}}/$T/$T/$V*$s*${{dt}}
-variable        k11 equal trap(f_JJ[3])*${{scale}}
-variable        k22 equal trap(f_JJ[4])*${{scale}}
-variable        k33 equal trap(f_JJ[5])*${{scale}}
+##### Diffusion Coefficient Calculations 
+
+compute         vacf all vacf   #Calculate velocity autocorrelation function
+fix             5 all vector 1 c_vacf[4]
+variable        vacf equal 0.33*${{dt}}*trap(f_5)
 
 thermo       		$d
-thermo_style custom step temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol v_Jx v_Jy v_Jz v_k11 v_k22 v_k33
-fix thermo_print all print $d "$(temp) $(press) $(v_myPxy) $(v_myPxz) $(v_myPyz) $(v_v11) $(v_v22) $(v_v33) $(vol) $(v_Jx) $(v_Jy) $(v_Jz) $(v_k11) $(v_k22) $(v_k33)" &
-    append thermoNVE_{Name}_T${{T}}KP1atm.out screen no title "# temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol v_Jx v_Jy v_Jz v_k11 v_k22 v_k33"
+thermo_style custom step temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol v_Jx v_Jy v_Jz v_k11 v_k22 v_k33 v_vacf
+
+fix thermo_print all print $d "$(temp) $(press) $(v_myPxy) $(v_myPxz) $(v_myPyz) $(v_v11) $(v_v22) $(v_v33) $(vol) $(v_Jx) $(v_Jy) $(v_Jz) $(v_k11) $(v_k22) $(v_k33) $(v_vacf)" &
+    append thermoNVE_{Name}_T${{T}}KP1atm.out screen no title "# temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol v_Jx v_Jy v_Jz v_k11 v_k22 v_k33 v_vacf"
 
 # Dump all molecule coordinates
 
 # save thermal conductivity to file
 variable     kav equal (v_k11+v_k22+v_k33)/3.0
-fix          fxave all ave/time $d 1 $d v_kav file lamda.profile
+fix          fxave1 all ave/time $d 1 $d v_kav file lamda.txt
 
-#dump         1 all custom $d All_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
+# save viscosity to a file
+variable     visc equal (v_v11+v_v22+v_v33)/3.0
+fix          fxave2 all ave/time $d 1 $d v_visc file visc.txt
+
+# save diffusion coefficient to a file
+fix          fxave3 all ave/time $d 1 $d v_vacf file diff_coeff.txt
+
 run          {GKRuntime}
-variable     v equal (v_v11+v_v22+v_v33)/3.0
+
 variable     ndens equal count(all)/vol
-print        "Average viscosity: $v [Pa.s] @ $T K, ${{ndens}} atoms/A^3"
+print        "Average viscosity: ${{visc}} [Pa.s] @ $T K, ${{ndens}} atoms/A^3"
 
 write_restart   	GKvisc_{Name}_T${{T}}KP1atm.restart
 write_data          GKvisc_{Name}_T${{T}}KP1atm.data
-
 """)
                 
 def MakeMoltemplateFile(Name, CWD, NumMols, BoxL):
@@ -340,96 +316,96 @@ PYTHONPATH = 'python3'
 #PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
 NumMols = 100
-NumRuns = 100
+NumRuns = 5
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
 BotValue = RunList[0]
-LOPLS = True
-WALLTIME = '48:00:00'
+LOPLS = False
+WALLTIME = '24:00:00'
 
-# runcmd('mkdir Trajectory_Studies')
+runcmd('mkdir Trajectory_Studies')
 
-# for Molecule in Molecules:
-#     FolderName = Molecule.split('.')[0]
-#     Path = join(STARTINGDIR, Molecule)
-#     MolObject = Chem.MolFromPDBFile(Path)
+for Molecule in Molecules:
+    FolderName = Molecule.split('.')[0]
+    Path = join(STARTINGDIR, Molecule)
+    MolObject = Chem.MolFromPDBFile(Path)
 
-#     if Molecule == '1-methylnapthalene.pdb':
-#         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
-#     elif Molecule == 'squalene.pdb':
-#          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
-#     else:
-#         SMILESString = Chem.MolToSmiles(MolObject)
+    if Molecule == '1-methylnapthalene.pdb':
+        SMILESString = 'CC1=CC=CC2=CC=CC=C12'
+    elif Molecule == 'squalane.pdb':
+         SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
+    else:
+        SMILESString = Chem.MolToSmiles(MolObject)
     
-#     if LOPLS:
-#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
-#     else:
-#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+    if LOPLS:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+    else:
+        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
   
-#     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
 
-#     #Enter Trajectory studies directory
-#     chdir(join(getcwd(), 'Trajectory_Studies'))
+    #Enter Trajectory studies directory
+    chdir(join(getcwd(), 'Trajectory_Studies'))
 
-#     #Make Molecule Folder in Trajectory studies directory
-#     runcmd(f'mkdir {FolderName}')
+    #Make Molecule Folder in Trajectory studies directory
+    runcmd(f'mkdir {FolderName}')
 
-#     #Copy molecule pdb to molecule directory
-#     runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+    #Copy molecule pdb to molecule directory
+    runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
-#     #Enter molecule directory
-#     chdir(join(getcwd(), FolderName))
+    #Enter molecule directory
+    chdir(join(getcwd(), FolderName))
 
-#     CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
-#                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+    CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
+                   TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
     
-#     CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
-#                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+    CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
+                   TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
 
-#     ### Make files for short vs long run convergence
-#     """
-#     - So we could run 100 trajectories for each molecule up to 10ns with 100 molecules
-#     - We could generate trajectories for 500ps, 1ns, 2ns, and 4ns by
-#     truncating each of the runs to the respective times
-#     - We could then take between 5 and 10 random samples from the 100 trajectories
-#     at each time length for varying numbers of trajectories
-#     - Take an average of the samples as the predicted value, and use the extreme values 
-#     or calculate the standard deviation as the uncertainty (2std for 95% confidence)
-#     """
+    ### Make files for short vs long run convergence
+    """
+    - So we could run 100 trajectories for each molecule up to 10ns with 100 molecules
+    - We could generate trajectories for 500ps, 1ns, 2ns, and 4ns by
+    truncating each of the runs to the respective times
+    - We could then take between 5 and 10 random samples from the 100 trajectories
+    at each time length for varying numbers of trajectories
+    - Take an average of the samples as the predicted value, and use the extreme values 
+    or calculate the standard deviation as the uncertainty (2std for 95% confidence)
+    """
 
-#     MolMass = GetMolMass(MolObject)
-#     BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
+    MolMass = GetMolMass(MolObject)
+    BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
 
-#     for x in RunList:
-#         runcmd(f'mkdir Run_{x}')
-#         Trajectory = f'Run_{x}'
-#         # Copy pdb
-#         runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
-#         # Copy lt file
-#         ltfile = f'{FolderName}.lt'
-#         runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
-#         # Set random seed
-#         Seed = rnd.randint(0, 1E6)
+    for x in RunList:
+        runcmd(f'mkdir Run_{x}')
+        Trajectory = f'Run_{x}'
+        # Copy pdb
+        runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
+        # Copy lt file
+        ltfile = f'{FolderName}.lt'
+        runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+        # Set random seed
+        Seed = rnd.randint(0, 1E6)
 
-#         # Make Packmol Input file
-#         MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
-#         # Make Moltemplate file
-#         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
-#         # Make Lammps Files
-#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=313)
-#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=10000000, Temp=373)
-#         # Make packmol coordinate file and LAMMPS data file
-#         chdir(join(getcwd(), Trajectory))
-#         if PYTHONPATH == 'python3':
-#             runcmd(f'packmol < {FolderName}.inp')
-#             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+        # Make Packmol Input file
+        MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
+        # Make Moltemplate file
+        MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
+        # Make Lammps Files
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=5000000, Temp=313)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=5000000, Temp=373)
+        # Make packmol coordinate file and LAMMPS data file
+        chdir(join(getcwd(), Trajectory))
+        if PYTHONPATH == 'python3':
+            runcmd(f'packmol < {FolderName}.inp')
+            runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
-#         # Return to starting directory
-#         chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
-#     chdir(STARTINGDIR)
+        # Return to starting directory
+        chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
+    chdir(STARTINGDIR)
 
-#     runcmd(f'del {FolderName}.lt')
+    runcmd(f'del {FolderName}.lt')
     
 # ## Files showing finite size effects
 # """
@@ -522,91 +498,91 @@ WALLTIME = '48:00:00'
 #     chdir(STARTINGDIR)
     
     
-### Files showing long term variations in viscosity and thermal conductivity prediction
-"""
-- Let's run 10 simulations for each molecule up to 100ns, will be pretty robust for 
-uncertainty calculations.
-- Run at 40C and 100C 
-"""
+# ### Files showing long term variations in viscosity and thermal conductivity prediction
+# """
+# - Let's run 10 simulations for each molecule up to 100ns, will be pretty robust for 
+# uncertainty calculations.
+# - Run at 40C and 100C 
+# """
 
-Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-NumMols = 100
-NumRuns = 10
-RunList = list(range(1, NumRuns+1))
-# Values for the array job
-TopValue = RunList[-1]
-BotValue = RunList[0]
-LOPLS = True
-WALLTIME = '72:00:00'
+# Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
+# NumMols = 100
+# NumRuns = 5
+# RunList = list(range(1, NumRuns+1))
+# # Values for the array job
+# TopValue = RunList[-1]
+# BotValue = RunList[0]
+# LOPLS = True
+# WALLTIME = '72:00:00'
 
-runcmd('mkdir LongSimEffects')
+# runcmd('mkdir LongSimEffects')
 
-for Molecule in Molecules:
-    FolderName = Molecule.split('.')[0]
-    Path = join(STARTINGDIR, Molecule)
-    MolObject = Chem.MolFromPDBFile(Path)
+# for Molecule in Molecules:
+#     FolderName = Molecule.split('.')[0]
+#     Path = join(STARTINGDIR, Molecule)
+#     MolObject = Chem.MolFromPDBFile(Path)
 
-    if Molecule == '1-methylnapthalene.pdb':
-        SMILESString = 'CC1=CC=CC2=CC=CC=C12'
-    elif Molecule == 'squalane.pdb':
-        SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
-    else:
-        SMILESString = Chem.MolToSmiles(MolObject)
+#     if Molecule == '1-methylnapthalene.pdb':
+#         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
+#     elif Molecule == 'squalane.pdb':
+#         SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
+#     else:
+#         SMILESString = Chem.MolToSmiles(MolObject)
 
-    print(SMILESString)
+#     print(SMILESString)
 
-    if LOPLS:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
-    else:
-        LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
+#     if LOPLS:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -l -c"
+#     else:
+#         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
 
-    runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+#     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
 
-    MolMass = GetMolMass(MolObject)
-    BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
+#     MolMass = GetMolMass(MolObject)
+#     BoxL = CalcBoxLen(MolMass=MolMass, TargetDens=0.8, NumMols=NumMols)
   
-    #Enter Long Sim Effects studies directory
-    chdir(join(getcwd(), 'LongSimEffects'))
+#     #Enter Long Sim Effects studies directory
+#     chdir(join(getcwd(), 'LongSimEffects'))
 
-    #Make Molecule Folder in Trajectory studies directory
-    runcmd(f'mkdir {FolderName}')
+#     #Make Molecule Folder in Trajectory studies directory
+#     runcmd(f'mkdir {FolderName}')
 
-    #Copy molecule pdb to molecule directory
-    runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
+#     #Copy molecule pdb to molecule directory
+#     runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), FolderName)}')
 
-    #Enter molecule directory
-    chdir(join(getcwd(), FolderName))
+#     #Enter molecule directory
+#     chdir(join(getcwd(), FolderName))
 
-    CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
-                   TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+#     CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_313K', SimType=f'{FolderName}_313K',
+#                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
     
-    CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
-                   TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
+#     CreateArrayJob(CWD=getcwd(), SimName=f'{FolderName}_system_373K', SimType=f'{FolderName}_373K',
+#                    TopValue=TopValue, BotValue=BotValue, WALLTIME=WALLTIME)
 
-    for x in RunList:
-        runcmd(f'mkdir Run_{x}')
-        Trajectory = f'Run_{x}'
-        # Copy pdb
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
-        # Copy lt file
-        ltfile = f'{FolderName}.lt'
-        runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
-        # Set random seed
-        Seed = rnd.randint(0, 1E6)
+#     for x in RunList:
+#         runcmd(f'mkdir Run_{x}')
+#         Trajectory = f'Run_{x}'
+#         # Copy pdb
+#         runcmd(f'{CopyCommand} "{join(STARTINGDIR, Molecule)}" {join(getcwd(), Trajectory, Molecule)}')
+#         # Copy lt file
+#         ltfile = f'{FolderName}.lt'
+#         runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+#         # Set random seed
+#         Seed = rnd.randint(0, 1E6)
 
-        # Make Packmol Input file
-        MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
-        # Make Moltemplate file
-        MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
-        # Make Lammps Files
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=100000000, Temp=313)
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=100000000, Temp=373)
-        # Make packmol coordinate file and LAMMPS data file
-        chdir(join(getcwd(), Trajectory))
-        if PYTHONPATH == 'python3':
-            runcmd(f'packmol < {FolderName}.inp')
-            runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
+#         # Make Packmol Input file
+#         MakePackmolFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, Seed=Seed, BoxL=BoxL)
+#         # Make Moltemplate file
+#         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
+#         # Make Lammps Files
+#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=5000000, Temp=313)
+#         MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=5000000, Temp=373)
+#         # Make packmol coordinate file and LAMMPS data file
+#         chdir(join(getcwd(), Trajectory))
+#         if PYTHONPATH == 'python3':
+#             runcmd(f'packmol < {FolderName}.inp')
+#             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
-        # Return to starting directory
-        chdir(join(STARTINGDIR, 'LongSimEffects', FolderName))
-    chdir(STARTINGDIR)
+#         # Return to starting directory
+#         chdir(join(STARTINGDIR, 'LongSimEffects', FolderName))
+#     chdir(STARTINGDIR)
