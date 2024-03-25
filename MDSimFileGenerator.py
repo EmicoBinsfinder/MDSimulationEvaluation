@@ -51,7 +51,7 @@ dihedral_style 		opls
 improper_style     	harmonic
 pair_modify 		mix geometric tail yes
 special_bonds   	lj/coul 0.0 0.0 0.5
-kspace_style        pppm 0.00001
+kspace_style        pppm 0.0001
 
 # Read lammps data file consist of molecular topology and forcefield info
 read_data       	{Name}_system.data
