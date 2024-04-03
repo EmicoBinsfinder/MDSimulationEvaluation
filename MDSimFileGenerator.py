@@ -44,14 +44,17 @@ dimension       	3
 boundary        	p p p
 atom_style      	full
 
-pair_style      	lj/cut/coul/cut 12.0 12.0 
-bond_style      	harmonic
-angle_style     	harmonic
-dihedral_style 		opls
-improper_style     	harmonic
-pair_modify 		mix geometric tail yes
-special_bonds   	lj/coul 0.0 0.0 0.5
-kspace_style        pppm 0.0001
+units real
+atom_style full
+bond_style harmonic
+angle_style harmonic
+dihedral_style opls
+improper_style harmonic
+pair_style lj/cut/coul/long 12.0 
+pair_modify mix geometric tail yes
+special_bonds lj/coul 0.0 0.0 0.5
+kspace_style pppm 0.0001
+
 
 # Read lammps data file consist of molecular topology and forcefield info
 read_data       	{Name}_system.data
@@ -94,7 +97,7 @@ thermo				$d
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
 fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
 					append thermoNPT_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-dump            	1 all custom $d NPT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
+# dump            	1 all custom $d NPT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
 # dump_modify     	1 sort id
 run					1000000
 # undump          	1
@@ -112,10 +115,10 @@ thermo         		$d
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
 fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
 					append thermoNVT_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-dump            	1 all custom $d NVT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
+# dump            	1 all custom $d NVT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
 # dump_modify     	1 sort id
 run					500000
-undump          	1
+# undump          	1
 unfix				NVT
 unfix           	adjust
 unfix               thermo_print
@@ -316,7 +319,7 @@ PYTHONPATH = 'python3'
 #PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
 NumMols = 100
-NumRuns = 5
+NumRuns = 3
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
