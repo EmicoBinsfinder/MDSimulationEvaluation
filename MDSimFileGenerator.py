@@ -67,7 +67,7 @@ include         "{Name}_system.in.settings"
 # Define variables
 variable        	eqmT equal $T			 			# Equilibrium temperature [K]
 variable        	eqmP equal 1.0						# Equilibrium pressure [atm]
-variable    		p equal 100						    # Nrepeat, correlation length
+variable    		p equal 100						    # Nrepeat, correlation length (Check different sample lengths)
 variable    		s equal 10       					# Nevery, sample interval
 variable    		d equal $s*$p  						# Nfreq, dump interval
 variable 			rho equal density
@@ -146,8 +146,8 @@ variable            kCal2J equal 4186.0/6.02214e23
 variable    		atm2Pa equal 101325.0		
 variable    		A2m equal 1.0e-10 			
 variable    		fs2s equal 1.0e-15 			
-variable			Pas2cP equal 1.0e+3			
-variable    		convert equal ${{atm2Pa}}*${{atm2Pa}}*${{fs2s}}*${{A2m}}*${{A2m}}*${{A2m}}
+variable			PaS2mPaS equal 1.0e+3			
+variable    		convert equal ${{atm2Pa}}*${{atm2Pa}}*${{fs2s}}*${{A2m}}*${{A2m}}*${{A2m}}*${{PaS2mPaS}}
 variable            convertWk equal ${{kCal2J}}*${{kCal2J}}/${{fs2s}}/${{A2m}}
 
 ##################################### Viscosity Calculation #####################################################
@@ -169,7 +169,7 @@ variable        Jy equal c_flux[2]/vol
 variable        Jz equal c_flux[3]/vol
 
 fix             	1 all nve
-fix             	2 all langevin ${{eqmT}} ${{eqmT}} 100.0 482648
+#fix             	2 all langevin ${{eqmT}} ${{eqmT}} 100.0 482648
 
 variable        	myPxx equal c_myP[1]
 variable        	myPyy equal c_myP[2]
@@ -178,7 +178,7 @@ variable     		myPxy equal c_myP[4]
 variable     		myPxz equal c_myP[5]
 variable     		myPyz equal c_myP[6]
 
-fix             	3 all ave/time 1 1 1 v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one #file Stress_AVGOne111_{Name}_T${{T}}KP1atm.out
+fix             	3 all ave/time 1 1 1 v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOne111_{Name}_T${{T}}KP1atm.out
 fix             	4 all ave/time $s $p $d v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOnespd_{Name}_T${{T}}KP1atm.out
 
 fix          SS all ave/correlate $s $p $d &
@@ -222,6 +222,8 @@ fix          fxave2 all ave/time $d 1 $d v_visc file visc.txt
 
 # save diffusion coefficient to a file
 fix          fxave3 all ave/time $d 1 $d v_vacf file diff_coeff.txt
+
+dump        LAMMPS all custom $d NVE_Prod_{Name}_${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
 
 run          {GKRuntime}
 
@@ -313,13 +315,39 @@ def CalcBoxLen(MolMass, TargetDens, NumMols):
     BoxLRounded = int(BoxL)
     return BoxLRounded
 
+def GeneratePDB(SMILES, PATH, CONFORMATTEMPTS=10):
+    """
+    Function that generates PDB file from RDKit Mol object, for use with Packmol
+    Inputs:
+        - SMILES: SMILES string to be converted to PDB
+        - PATH: Location that the PDB will stored
+        - CONFORMATTEMPTS: Max number of tries (x5000) to find converged conformer for molecule
+    """
+    SMILESMol = Chem.MolFromSmiles(SMILES) # Create mol object
+    SMILESMol = Chem.AddHs(SMILESMol) # Need to make Hydrogens explicit
+
+    AllChem.EmbedMolecule(SMILESMol, AllChem.ETKDG()) #Create conformer using ETKDG method
+
+    # Initial parameters for conformer optimisation
+    MMFFSMILES = 1 
+    ConformAttempts = 1
+    MaxConformAttempts = CONFORMATTEMPTS
+
+    # Ensure that script continues to iterate until acceptable conformation found
+    while MMFFSMILES !=0 and ConformAttempts <= MaxConformAttempts: # Checking if molecule converged
+        MMFFSMILES = Chem.rdForceFieldHelpers.MMFFOptimizeMolecule(SMILESMol, maxIters=5000)
+        ConformAttempts += 1
+        
+    # Record parameterised conformer as pdb to be used with packmol later 
+    Chem.MolToPDBFile(SMILESMol, f'{PATH}')
+
 CopyCommand = 'cp'
 STARTINGDIR = deepcopy(getcwd())
 PYTHONPATH = 'python3'
 #PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-NumMols = 100
-NumRuns = 3
+NumMols = 200
+NumRuns = 5
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
@@ -338,6 +366,8 @@ for Molecule in Molecules:
         SMILESString = 'CC1=CC=CC2=CC=CC=C12'
     elif Molecule == 'squalane.pdb':
          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
+    elif Molecule == 'bis_2_ethylhexyl_sebacate.pdb':
+        SMILESString = 'CCCCC(CC)COC(=O)CCCCCCCCC(=O)OCC(CC)CCCC'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
     
@@ -347,6 +377,8 @@ for Molecule in Molecules:
         LTCOMMAND = f"{join(STARTINGDIR, 'rdlt.py')} --smi '{SMILESString}' -n {FolderName} -c"
   
     runcmd(f'{PYTHONPATH} {LTCOMMAND} > {STARTINGDIR}/{FolderName}.lt')
+
+    GeneratePDB(SMILESString, PATH=join(STARTINGDIR, f'{FolderName}.pdb'))
 
     #Enter Trajectory studies directory
     chdir(join(getcwd(), 'Trajectory_Studies'))
@@ -396,8 +428,8 @@ for Molecule in Molecules:
         # Make Moltemplate file
         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
         # Make Lammps Files
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=5000000, Temp=313)
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=5000000, Temp=373)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=2000000, Temp=313)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=2000000, Temp=373)
         # Make packmol coordinate file and LAMMPS data file
         chdir(join(getcwd(), Trajectory))
         if PYTHONPATH == 'python3':
