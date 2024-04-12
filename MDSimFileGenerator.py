@@ -352,10 +352,10 @@ RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
 BotValue = RunList[0]
-LOPLS = False
+LOPLS = True
 WALLTIME = '24:00:00'
 
-runcmd('mkdir Trajectory_Studies')
+runcmd('mkdir Trajectory_Studies_LOPLS')
 
 for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
@@ -381,7 +381,7 @@ for Molecule in Molecules:
     GeneratePDB(SMILESString, PATH=join(STARTINGDIR, f'{FolderName}.pdb'))
 
     #Enter Trajectory studies directory
-    chdir(join(getcwd(), 'Trajectory_Studies'))
+    chdir(join(getcwd(), 'Trajectory_Studies_LOPLS'))
 
     #Make Molecule Folder in Trajectory studies directory
     runcmd(f'mkdir {FolderName}')
@@ -437,7 +437,7 @@ for Molecule in Molecules:
             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
         # Return to starting directory
-        chdir(join(STARTINGDIR, 'Trajectory_Studies', FolderName))
+        chdir(join(STARTINGDIR, 'Trajectory_Studies_LOPLS', FolderName))
     chdir(STARTINGDIR)
 
     runcmd(f'del {FolderName}.lt')

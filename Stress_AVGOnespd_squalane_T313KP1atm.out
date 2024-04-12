@@ -1,4 +1,5 @@
-TimeStep v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz
+# Time-averaged data for fix 4
+# TimeStep v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz
 1501000 -225.323 -264.9 -258.981 5.9929 -1.92041 -22.206
 1502000 -158.111 -448.31 -197.299 -8.57101 -5.49203 9.93597
 1503000 -214.713 -342.817 -349.911 22.4736 -56.014 -25.6958

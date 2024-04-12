@@ -49,7 +49,7 @@ df = pd.read_csv('Stress_AVGOnespd_squalane_T313KP1atm.out')
 unit = 'atm' #Pressure, bar or temperature
 datafile = 'Stress_AVGOnespd_squalane_T313KP1atm.out'
 diag = False # Use the diagonal components for viscosity prediction
-steps = len(df) # Num steps to read from the pressure tensor file
+steps = len(df) - 5 # Num steps to read from the pressure tensor file
 timestep = 1 # What timestep are you using in the pressure tensor file
 temperature = 313 #System temp
 volume = 176163.49
@@ -75,6 +75,8 @@ Pxx, Pyy, Pzz, Pxy, Pxz, Pyz = [], [], [], [], [], []
 print('\nReading the pressure tensor data file')
 with open(datafile, "r") as file:
     next(file)
+    next(file)
+
     for _ in trange(steps, ncols=100, desc='Progress'):
         line = file.readline()
         step = list(map(float, line.split()))
