@@ -22,21 +22,16 @@ for Name in Names:
     for Temp in Temps:
             chdir(join(STARTDIR, Name))
             Runs = [x for x in listdir(getcwd()) if os.path.isdir(x)]
-            print(Runs)
+
+            DataframeEinstein = pd.DataFrame()
+
+            DataframeGK = pd.DataFrame()
+
             for Run in Runs:
                 try:
                     chdir(join(STARTDIR, Name, Run))
                     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    # Define ACF
-                    def acf_(data):
-                        steps = data.shape[0]
-                        size = steps // 2
 
-                        autocorrelation = np.zeros(size, dtype=float)
-                        for shift in trange(size, ncols=100, desc='Progress'):
-                                autocorrelation[shift] = np.mean( (data[:steps-shift]) * (data[shift:]) )
-
-                        return autocorrelation
 
                     # Define ACF using FFT
                     def acf(data):
@@ -69,9 +64,10 @@ for Name in Names:
                     diag = False # Use the diagonal components for viscosity prediction
                     steps = len(df) - 5 # Num steps to read from the pressure tensor file
                     timestep = 1 # What timestep are you using in the pressure tensor file
+                    runtime = 2 # How long you ran the simulation (ns)
                     temperature = 313 #System temp
                     volume = 176163.49
-                    each = 100 # Sample frequency
+                    each = 10 # Sample frequency
                     plot = True # Create plot for autocorrelation function
 
                     # Conversion ratio from atm/bar to Pa
@@ -147,7 +143,6 @@ for Name in Names:
 
                     print(f"\nViscosity (Einstein): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
                     viscE = round((viscosity[-1] * 1000), 2)
-                    print(viscE)
 
                     # Plot the running integral of viscosity
                     if plot:
@@ -158,11 +153,15 @@ for Name in Names:
                         plt.legend([f'Viscosity Estimate: {viscE} [mPa.s]'])
                         plt.title(f'{Name}_{Run}_{Temp}_Einstein')
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_Einstein.png'))
+                        plt.close()
 
                     # Save the running integral of viscosity as a csv file
-                    # df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
-                    # df.to_csv("viscosity_Einstein.csv", index=False)
 
+                    df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
+
+                    DataframeEinstein[f'Viscosity_{Run}'] = viscosity[:]*1000
+
+                    Time = np.linspace(0, end_step, num=steps, endpoint=False)
                     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                     # Viscosity from Green-Kubo relation
                     def green_kubo(timestep):
@@ -205,6 +204,7 @@ for Name in Names:
                         plt.legend()
                         plt.title(f'{Name}_{Run}_{Temp}_GKACF')
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GKACF.png'))
+                        plt.close()
 
                     # Save the normalized average ACF as a csv file
                     norm_avg_acf = avg_acf / avg_acf[0]
@@ -221,11 +221,69 @@ for Name in Names:
                         plt.ylabel('Green Kubo Viscosity (mPa.s)')
                         plt.legend([f'Viscosity Estimate: {round((viscosity[-1] * 1000), 2)} [mPa.s]'])
                         plt.title(f'{Name}_{Run}_{Temp}_GK')
-                        plt.savefig(join(STARTDIR, f'{Name}_{Run}_{Temp}_GreenKubo.png'))
+                        plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GreenKubo.png'))
+                        plt.close()
+
+                    DataframeGK[f'Viscosity_{Run}'] = viscosity[:]*1000
 
                     # Save running integral of the viscosity as a csv file
-                    df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
-                    # df.to_csv("viscosity_GK.csv", index=False)
+                    # df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
+
                 except Exception as E:
                     print(E)
                     pass
+
+            # Plot average value for each timestep
+            DataframeGK['Average'] = DataframeGK.mean(axis=1)
+            DataframeGK['STD'] = DataframeGK.std(axis=1)
+            DataframeEinstein['Average'] = DataframeEinstein.mean(axis=1)
+            DataframeEinstein['STD'] = DataframeEinstein.std(axis=1)
+
+            DataframeGKViscList_Average = DataframeGK['Average'].to_list()
+            DataframeGKViscList_AverageSTD = DataframeGK['STD'].to_list()
+            DataframeGKViscList_Average = [float(x) for x in DataframeGKViscList_Average]
+            DataframeGKViscList_AverageSTD = [float(x) for x in DataframeGKViscList_AverageSTD]
+            ViscGK_UpperSTD = [a + b for a, b in zip(DataframeGKViscList_Average, DataframeGKViscList_AverageSTD)]
+            ViscGK_LowerSTD = [a - b for a, b in zip(DataframeGKViscList_Average, DataframeGKViscList_AverageSTD)]
+            DataframeEinsteinList_Average = DataframeEinstein['Average'].to_list()
+            DataframeEinsteinList_AverageSTD = DataframeEinstein['STD'].to_list()
+            DataframeEinsteinList_Average = [float(x) for x in DataframeEinsteinList_Average]
+            DataframeEinsteinList_AverageSTD = [float(x) for x in DataframeEinsteinList_AverageSTD]
+            Einstein_LowerSTD = [a + b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
+            Einstein_UpperSTD = [a - b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
+
+            step = list(range(0, len(DataframeGKViscList_Average)))
+            step = [x/1000 for x in step]
+
+            # Plot Visc evolution - Green Kubo
+            ViscPlt, Vplot = plt.subplots()
+            Vplot.set_title(f'GK Viscosity Average - {Name} {Temp}K - 1ns')
+            Vplot.set_ylabel('Viscosity [mPa.S]')
+            Vplot.set_xlabel('Time (ns)')
+            Vplot.plot(step, DataframeGKViscList_Average)
+            Vplot.legend([f'Viscosity Estimate: {round((DataframeGKViscList_Average[-1]), 2)} [mPa.s]']) 
+            Vplot.fill_between(step, ViscGK_LowerSTD, ViscGK_UpperSTD, alpha=0.4)
+            Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
+            Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
+            plt.minorticks_on()
+            # Vplot.set_xlim(-0.05, 3)
+            plt.savefig(join(STARTDIR, Name,  f'AvViscPlotGK_{Name}{Temp}K_1ns.png'))
+            plt.close()            
+
+            step = list(range(0, len(DataframeEinsteinList_Average)))
+            step = [x/1000 for x in step]
+
+            # Plot Visc evolution - Einstein
+            ViscPlt, Vplot = plt.subplots()
+            Vplot.set_title(f'Einstein Viscosity Average - {Name} {Temp}K')
+            Vplot.set_ylabel('Viscosity [mPa.S]')
+            Vplot.set_xlabel('Time (ns)')
+            Vplot.plot(step, DataframeEinsteinList_Average)
+            Vplot.legend([f'Viscosity Estimate: {round((DataframeEinsteinList_Average[-1]), 2)} [mPa.s]']) 
+            Vplot.fill_between(step, Einstein_LowerSTD, Einstein_UpperSTD, alpha=0.4)
+            Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
+            Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
+            plt.minorticks_on()
+            # Vplot.set_xlim(-0.05, 3)
+            plt.savefig(join(STARTDIR, Name,  f'AvViscPlotGK_{Name}{Temp}K_1ns.png'))
+            plt.close()   
