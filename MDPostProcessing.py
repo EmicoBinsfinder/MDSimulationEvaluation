@@ -36,7 +36,7 @@ for Name in Names:
                     # Define ACF using FFT
                     def acf(data):
                         steps = data.shape[0]
-                        lag = steps // 2
+                        lag = steps - 4
 
                         # Nearest size with power of 2 (for efficiency) to zero-pad the input data
                         size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
@@ -203,7 +203,7 @@ for Name in Names:
                         plt.ylabel('Green Kubo ACF')
                         plt.legend()
                         plt.title(f'{Name}_{Run}_{Temp}_GKACF')
-                        plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GKACF.png'))
+                        plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_2nsGKACF.png'))
                         plt.close()
 
                     # Save the normalized average ACF as a csv file
@@ -221,7 +221,7 @@ for Name in Names:
                         plt.ylabel('Green Kubo Viscosity (mPa.s)')
                         plt.legend([f'Viscosity Estimate: {round((viscosity[-1] * 1000), 2)} [mPa.s]'])
                         plt.title(f'{Name}_{Run}_{Temp}_GK')
-                        plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GreenKubo.png'))
+                        plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GreenKubo2ns.png'))
                         plt.close()
 
                     DataframeGK[f'Viscosity_{Run}'] = viscosity[:]*1000
@@ -233,57 +233,60 @@ for Name in Names:
                     print(E)
                     pass
 
-            # Plot average value for each timestep
-            DataframeGK['Average'] = DataframeGK.mean(axis=1)
-            DataframeGK['STD'] = DataframeGK.std(axis=1)
-            DataframeEinstein['Average'] = DataframeEinstein.mean(axis=1)
-            DataframeEinstein['STD'] = DataframeEinstein.std(axis=1)
+            try:
+                # Plot average value for each timestep
+                DataframeGK['Average'] = DataframeGK.mean(axis=1)
+                DataframeGK['STD'] = DataframeGK.std(axis=1)
+                DataframeEinstein['Average'] = DataframeEinstein.mean(axis=1)
+                DataframeEinstein['STD'] = DataframeEinstein.std(axis=1)
 
-            DataframeGKViscList_Average = DataframeGK['Average'].to_list()
-            DataframeGKViscList_AverageSTD = DataframeGK['STD'].to_list()
-            DataframeGKViscList_Average = [float(x) for x in DataframeGKViscList_Average]
-            DataframeGKViscList_AverageSTD = [float(x) for x in DataframeGKViscList_AverageSTD]
-            ViscGK_UpperSTD = [a + b for a, b in zip(DataframeGKViscList_Average, DataframeGKViscList_AverageSTD)]
-            ViscGK_LowerSTD = [a - b for a, b in zip(DataframeGKViscList_Average, DataframeGKViscList_AverageSTD)]
-            DataframeEinsteinList_Average = DataframeEinstein['Average'].to_list()
-            DataframeEinsteinList_AverageSTD = DataframeEinstein['STD'].to_list()
-            DataframeEinsteinList_Average = [float(x) for x in DataframeEinsteinList_Average]
-            DataframeEinsteinList_AverageSTD = [float(x) for x in DataframeEinsteinList_AverageSTD]
-            Einstein_LowerSTD = [a + b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
-            Einstein_UpperSTD = [a - b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
+                DataframeGKViscList_Average = DataframeGK['Average'].to_list()
+                DataframeGKViscList_AverageSTD = DataframeGK['STD'].to_list()
+                DataframeGKViscList_Average = [float(x) for x in DataframeGKViscList_Average]
+                DataframeGKViscList_AverageSTD = [float(x) for x in DataframeGKViscList_AverageSTD]
+                ViscGK_UpperSTD = [a + b for a, b in zip(DataframeGKViscList_Average, DataframeGKViscList_AverageSTD)]
+                ViscGK_LowerSTD = [a - b for a, b in zip(DataframeGKViscList_Average, DataframeGKViscList_AverageSTD)]
+                DataframeEinsteinList_Average = DataframeEinstein['Average'].to_list()
+                DataframeEinsteinList_AverageSTD = DataframeEinstein['STD'].to_list()
+                DataframeEinsteinList_Average = [float(x) for x in DataframeEinsteinList_Average]
+                DataframeEinsteinList_AverageSTD = [float(x) for x in DataframeEinsteinList_AverageSTD]
+                Einstein_LowerSTD = [a + b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
+                Einstein_UpperSTD = [a - b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
 
-            step = list(range(0, len(DataframeGKViscList_Average)))
-            step = [x/1000 for x in step]
+                step = list(range(0, len(DataframeGKViscList_Average)))
+                step = [x/1000 for x in step]
 
-            # Plot Visc evolution - Green Kubo
-            ViscPlt, Vplot = plt.subplots()
-            Vplot.set_title(f'GK Viscosity Average - {Name} {Temp}K - 1ns')
-            Vplot.set_ylabel('Viscosity [mPa.S]')
-            Vplot.set_xlabel('Time (ns)')
-            Vplot.plot(step, DataframeGKViscList_Average)
-            Vplot.legend([f'Viscosity Estimate: {round((DataframeGKViscList_Average[-1]), 2)} [mPa.s]']) 
-            Vplot.fill_between(step, ViscGK_LowerSTD, ViscGK_UpperSTD, alpha=0.4)
-            Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
-            Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
-            plt.minorticks_on()
-            # Vplot.set_xlim(-0.05, 3)
-            plt.savefig(join(STARTDIR, Name,  f'AvViscPlotGK_{Name}{Temp}K_1ns.png'))
-            plt.close()            
+                # Plot Visc evolution - Green Kubo
+                ViscPlt, Vplot = plt.subplots()
+                Vplot.set_title(f'GK Viscosity Average - {Name} {Temp}K - 1ns')
+                Vplot.set_ylabel('Viscosity [mPa.S]')
+                Vplot.set_xlabel('Time (ns)')
+                Vplot.plot(step, DataframeGKViscList_Average)
+                Vplot.legend([f'Viscosity Estimate: {round((DataframeGKViscList_Average[-1]), 2)} [mPa.s]']) 
+                Vplot.fill_between(step, ViscGK_LowerSTD, ViscGK_UpperSTD, alpha=0.4)
+                Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
+                Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
+                plt.minorticks_on()
+                # Vplot.set_xlim(-0.05, 3)
+                plt.savefig(join(STARTDIR, Name,  f'AvViscPlotGK_{Name}{Temp}K_2ns.png'))
+                plt.close()            
 
-            step = list(range(0, len(DataframeEinsteinList_Average)))
-            step = [x/1000 for x in step]
+                step = list(range(0, len(DataframeEinsteinList_Average)))
+                step = [x/1000 for x in step]
 
-            # Plot Visc evolution - Einstein
-            ViscPlt, Vplot = plt.subplots()
-            Vplot.set_title(f'Einstein Viscosity Average - {Name} {Temp}K')
-            Vplot.set_ylabel('Viscosity [mPa.S]')
-            Vplot.set_xlabel('Time (ns)')
-            Vplot.plot(step, DataframeEinsteinList_Average)
-            Vplot.legend([f'Viscosity Estimate: {round((DataframeEinsteinList_Average[-1]), 2)} [mPa.s]']) 
-            Vplot.fill_between(step, Einstein_LowerSTD, Einstein_UpperSTD, alpha=0.4)
-            Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
-            Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
-            plt.minorticks_on()
-            # Vplot.set_xlim(-0.05, 3)
-            plt.savefig(join(STARTDIR, Name,  f'AvViscPlotGK_{Name}{Temp}K_1ns.png'))
-            plt.close()   
+                # Plot Visc evolution - Einstein
+                ViscPlt, Vplot = plt.subplots()
+                Vplot.set_title(f'Einstein Viscosity Average - {Name} {Temp}K')
+                Vplot.set_ylabel('Viscosity [mPa.S]')
+                Vplot.set_xlabel('Time (ns)')
+                Vplot.plot(step, DataframeEinsteinList_Average)
+                Vplot.legend([f'Viscosity Estimate: {round((DataframeEinsteinList_Average[-1]), 2)} [mPa.s]']) 
+                Vplot.fill_between(step, Einstein_LowerSTD, Einstein_UpperSTD, alpha=0.4)
+                Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
+                Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
+                plt.minorticks_on()
+                # Vplot.set_xlim(-0.05, 3)
+                plt.savefig(join(STARTDIR, Name,  f'EinsteinAvViscPlot_{Name}{Temp}K_2ns.png'))
+                plt.close()   
+            except:
+                pass

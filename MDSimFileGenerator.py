@@ -346,13 +346,13 @@ STARTINGDIR = deepcopy(getcwd())
 PYTHONPATH = 'python3'
 #PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-NumMols = 200
-NumRuns = 5
+NumMols = 50
+NumRuns = 40
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
 BotValue = RunList[0]
-LOPLS = True
+LOPLS = False
 WALLTIME = '24:00:00'
 
 runcmd('mkdir Trajectory_Studies_LOPLS')
