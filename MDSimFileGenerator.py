@@ -50,7 +50,7 @@ bond_style harmonic
 angle_style harmonic
 dihedral_style opls
 improper_style harmonic
-pair_style lj/cut/coul/long 12.0 
+pair_style lj/cut/coul/long 10.0 
 pair_modify mix geometric tail yes
 special_bonds lj/coul 0.0 0.0 0.5
 kspace_style pppm 0.0001
@@ -311,7 +311,7 @@ def GetMolMass(mol):
 
 def CalcBoxLen(MolMass, TargetDens, NumMols):
     # Very conservative implementation of Packmol volume guesser
-    BoxL = (((MolMass * NumMols * 2)/ TargetDens) * 2.5) ** (1./3.)
+    BoxL = (((MolMass * NumMols * 2)/ TargetDens) * 2) ** (1./3.)
     BoxLRounded = int(BoxL)
     return BoxLRounded
 
@@ -346,16 +346,16 @@ STARTINGDIR = deepcopy(getcwd())
 PYTHONPATH = 'python3'
 #PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-NumMols = 50
-NumRuns = 40
+NumMols = 100
+NumRuns = 50
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
 BotValue = RunList[0]
 LOPLS = False
-WALLTIME = '24:00:00'
+WALLTIME = '07:59:59'
 
-runcmd('mkdir Trajectory_Studies_LOPLS')
+runcmd('mkdir FinalValidationStudies')
 
 for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
@@ -368,6 +368,8 @@ for Molecule in Molecules:
          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
     elif Molecule == 'bis_2_ethylhexyl_sebacate.pdb':
         SMILESString = 'CCCCC(CC)COC(=O)CCCCCCCCC(=O)OCC(CC)CCCC'
+    elif Molecule == '1-Diphenyltetradecane.pdb':
+        SMILESString = 'C(c1ccccc1)(c1ccccc1)CCCCCCCCCCCCC'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
     
@@ -381,7 +383,7 @@ for Molecule in Molecules:
     GeneratePDB(SMILESString, PATH=join(STARTINGDIR, f'{FolderName}.pdb'))
 
     #Enter Trajectory studies directory
-    chdir(join(getcwd(), 'Trajectory_Studies_LOPLS'))
+    chdir(join(getcwd(), 'FinalValidationStudies'))
 
     #Make Molecule Folder in Trajectory studies directory
     runcmd(f'mkdir {FolderName}')
@@ -437,7 +439,7 @@ for Molecule in Molecules:
             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
         # Return to starting directory
-        chdir(join(STARTINGDIR, 'Trajectory_Studies_LOPLS', FolderName))
+        chdir(join(STARTINGDIR, 'FinalValidationStudies', FolderName))
     chdir(STARTINGDIR)
 
     runcmd(f'del {FolderName}.lt')

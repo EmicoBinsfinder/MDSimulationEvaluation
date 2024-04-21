@@ -36,7 +36,7 @@ for Name in Names:
                     # Define ACF using FFT
                     def acf(data):
                         steps = data.shape[0]
-                        lag = steps - 4
+                        lag = steps // 2
 
                         # Nearest size with power of 2 (for efficiency) to zero-pad the input data
                         size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
@@ -202,7 +202,10 @@ for Name in Names:
                         plt.xlabel('Time (ps)')
                         plt.ylabel('Green Kubo ACF')
                         plt.legend()
-                        plt.title(f'{Name}_{Run}_{Temp}_GKACF')
+                        plt.title(f'{Name} {Temp}K Green Kubo ACF')
+                        plt.grid(color='grey', linestyle='--', linewidth=0.5)
+                        plt.grid(which="minor", linestyle='--', linewidth=0.2)
+                        plt.minorticks_on()
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_2nsGKACF.png'))
                         plt.close()
 
@@ -220,7 +223,10 @@ for Name in Names:
                         plt.xlabel('Time (ps)')
                         plt.ylabel('Green Kubo Viscosity (mPa.s)')
                         plt.legend([f'Viscosity Estimate: {round((viscosity[-1] * 1000), 2)} [mPa.s]'])
-                        plt.title(f'{Name}_{Run}_{Temp}_GK')
+                        plt.title(f'{Name} {Temp}K Green Kubo Viscosity')
+                        plt.grid(color='grey', linestyle='--', linewidth=0.5)
+                        plt.grid(which="minor", linestyle='--', linewidth=0.2)
+                        plt.minorticks_on()
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GreenKubo2ns.png'))
                         plt.close()
 
