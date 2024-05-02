@@ -50,7 +50,7 @@ bond_style harmonic
 angle_style harmonic
 dihedral_style opls
 improper_style harmonic
-pair_style lj/cut/coul/long 10.0 
+pair_style lj/cut/coul/long 12.0 
 pair_modify mix geometric tail yes
 special_bonds lj/coul 0.0 0.0 0.5
 kspace_style pppm 0.0001
@@ -180,6 +180,7 @@ variable     		myPyz equal c_myP[6]
 
 fix             	3 all ave/time 1 1 1 v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOne111_{Name}_T${{T}}KP1atm.out
 fix             	4 all ave/time $s $p $d v_myPxx v_myPyy v_myPzz v_myPxy v_myPxz v_myPyz ave one file Stress_AVGOnespd_{Name}_T${{T}}KP1atm.out
+fix             	FluxVector all ave/time $s $p $d v_Jx v_Jy v_Jz ave one file HeatFlux_AVGOnespd_{Name}_T${{T}}KP1atm.out
 
 fix          SS all ave/correlate $s $p $d &
              v_myPxy v_myPxz v_myPyz type auto file S0St.dat ave running
@@ -230,8 +231,6 @@ run          {GKRuntime}
 variable     ndens equal count(all)/vol
 print        "Average viscosity: ${{visc}} [Pa.s] @ $T K, ${{ndens}} atoms/A^3"
 
-write_restart   	GKvisc_{Name}_T${{T}}KP1atm.restart
-write_data          GKvisc_{Name}_T${{T}}KP1atm.data
 """)
                 
 def MakeMoltemplateFile(Name, CWD, NumMols, BoxL):
@@ -311,7 +310,7 @@ def GetMolMass(mol):
 
 def CalcBoxLen(MolMass, TargetDens, NumMols):
     # Very conservative implementation of Packmol volume guesser
-    BoxL = (((MolMass * NumMols * 2)/ TargetDens) * 2) ** (1./3.)
+    BoxL = (((MolMass * NumMols * 2)/ TargetDens) * 1.75) ** (1./3.)
     BoxLRounded = int(BoxL)
     return BoxLRounded
 
@@ -346,16 +345,16 @@ STARTINGDIR = deepcopy(getcwd())
 PYTHONPATH = 'python3'
 #PYTHONPATH = 'C:/Users/eeo21/AppData/Local/Programs/Python/Python310/python.exe'
 Molecules = [x for x in listdir(STARTINGDIR) if '.pdb' in x]
-NumMols = 100
-NumRuns = 50
+NumMols = 200
+NumRuns = 20
 RunList = list(range(1, NumRuns+1))
 # Values for the array job
 TopValue = RunList[-1] 
 BotValue = RunList[0]
 LOPLS = False
-WALLTIME = '07:59:59'
+WALLTIME = '23:59:59'
 
-runcmd('mkdir FinalValidationStudies')
+runcmd('mkdir ValidationStudies12ACutoff_200mols')
 
 for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
@@ -368,8 +367,8 @@ for Molecule in Molecules:
          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
     elif Molecule == 'bis_2_ethylhexyl_sebacate.pdb':
         SMILESString = 'CCCCC(CC)COC(=O)CCCCCCCCC(=O)OCC(CC)CCCC'
-    elif Molecule == '1-Diphenyltetradecane.pdb':
-        SMILESString = 'C(c1ccccc1)(c1ccccc1)CCCCCCCCCCCCC'
+    #elif Molecule == '1-Diphenyltetradecane.pdb':
+    #    SMILESString = 'C(c1ccccc1)(c1ccccc1)CCCCCCCCCCCCC'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
     
@@ -383,7 +382,7 @@ for Molecule in Molecules:
     GeneratePDB(SMILESString, PATH=join(STARTINGDIR, f'{FolderName}.pdb'))
 
     #Enter Trajectory studies directory
-    chdir(join(getcwd(), 'FinalValidationStudies'))
+    chdir(join(getcwd(), 'ValidationStudies12ACutoff_200mols'))
 
     #Make Molecule Folder in Trajectory studies directory
     runcmd(f'mkdir {FolderName}')
@@ -439,7 +438,7 @@ for Molecule in Molecules:
             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
         # Return to starting directory
-        chdir(join(STARTINGDIR, 'FinalValidationStudies', FolderName))
+        chdir(join(STARTINGDIR, 'ValidationStudies12ACutoff_200mols', FolderName))
     chdir(STARTINGDIR)
 
     runcmd(f'del {FolderName}.lt')

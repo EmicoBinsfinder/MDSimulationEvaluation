@@ -12,7 +12,54 @@ from os import getcwd
 from os import listdir
 import os
 
-chdir('C:/Users/eeo21/Desktop/Trajectory_Studies_1000')
+# Define ACF using FFT
+def acf(data):
+    steps = data.shape[0]
+    lag = int(steps * 0.75)
+
+    # Nearest size with power of 2 (for efficiency) to zero-pad the input data
+    size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
+
+    # Compute the FFT
+    FFT = np.fft.fft(data, size)
+
+    # Get the power spectrum
+    PWR = FFT.conjugate() * FFT
+
+    # Calculate the auto-correlation from inverse FFT of the power spectrum
+    COR = np.fft.ifft(PWR)[:steps].real
+
+    autocorrelation = COR / np.arange(steps, 0, -1)
+
+    return autocorrelation[:lag]
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Viscosity from Einstein relation
+def einstein(timestep):
+
+    Pxxyy = (Pxx - Pyy) / 2
+    Pyyzz = (Pyy - Pzz) / 2
+
+    '''
+    Calculate the viscosity from the Einstein relation 
+    by integrating the components of the pressure tensor
+    '''
+    timestep = timestep * 10**(-12)
+
+    Pxy_int = integrate.cumtrapz(y=Pxy, dx=timestep, initial=0)
+    Pxz_int = integrate.cumtrapz(y=Pxz, dx=timestep, initial=0)
+    Pyz_int = integrate.cumtrapz(y=Pyz, dx=timestep, initial=0)
+
+    Pxxyy_int = integrate.cumtrapz(y=Pxxyy, dx=timestep, initial=0)
+    Pyyzz_int = integrate.cumtrapz(y=Pyyzz, dx=timestep, initial=0)
+
+    integral = (Pxy_int**2 + Pxz_int**2 + Pyz_int**2 + Pxxyy_int**2 + Pyyzz_int**2) / 5
+
+    viscosity = integral[1:] * ( volume * 10**(-30) / (2 * kBT * Time[1:] * 10**(-12)) )
+
+    return viscosity
+
+chdir('C:/Users/eeo21/Desktop/ValidationStudies12ACutoff_LOPLS')
 STARTDIR = getcwd()
 
 Names = [x for x in listdir(getcwd()) if os.path.isdir(x)]
@@ -24,35 +71,12 @@ for Name in Names:
             Runs = [x for x in listdir(getcwd()) if os.path.isdir(x)]
 
             DataframeEinstein = pd.DataFrame()
-
             DataframeGK = pd.DataFrame()
 
             for Run in Runs:
                 try:
                     chdir(join(STARTDIR, Name, Run))
                     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-                    # Define ACF using FFT
-                    def acf(data):
-                        steps = data.shape[0]
-                        lag = steps // 2
-
-                        # Nearest size with power of 2 (for efficiency) to zero-pad the input data
-                        size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
-
-                        # Compute the FFT
-                        FFT = np.fft.fft(data, size)
-
-                        # Get the power spectrum
-                        PWR = FFT.conjugate() * FFT
-
-                        # Calculate the auto-correlation from inverse FFT of the power spectrum
-                        COR = np.fft.ifft(PWR)[:steps].real
-
-                        autocorrelation = COR / np.arange(steps, 0, -1)
-
-                        return autocorrelation[:lag]
 
                     df = pd.read_csv(f'Stress_AVGOnespd_{Name}_T{Temp}KP1atm.out')
                     # print(df.columns)
@@ -64,9 +88,21 @@ for Name in Names:
                     diag = False # Use the diagonal components for viscosity prediction
                     steps = len(df) - 5 # Num steps to read from the pressure tensor file
                     timestep = 1 # What timestep are you using in the pressure tensor file
-                    runtime = 2 # How long you ran the simulation (ns)
-                    temperature = 313 #System temp
-                    volume = 176163.49
+                    temperature = Temp #System temp
+
+                    with open(f'logGKvisc_{Name}_T{Temp}KP1atm.out', "r") as file:
+                        content = file.readlines()
+                        for line in content:
+                            linecontent = line.split(' ')
+                            linecontent = [x for x in linecontent if x != '']
+                            if len(linecontent) == 18:
+                                try:
+                                    vol = linecontent[9]
+                                    volume = float(vol)
+                                except:
+                                    pass
+
+                    print(volume)
                     each = 10 # Sample frequency
                     plot = True # Create plot for autocorrelation function
 
@@ -113,32 +149,6 @@ for Name in Names:
                     end_step = steps * timestep
                     Time = np.linspace(0, end_step, num=steps, endpoint=False)
 
-                    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    # Viscosity from Einstein relation
-                    def einstein(timestep):
-
-                        Pxxyy = (Pxx - Pyy) / 2
-                        Pyyzz = (Pyy - Pzz) / 2
-
-                        '''
-                        Calculate the viscosity from the Einstein relation 
-                        by integrating the components of the pressure tensor
-                        '''
-                        timestep = timestep * 10**(-12)
-
-                        Pxy_int = integrate.cumtrapz(y=Pxy, dx=timestep, initial=0)
-                        Pxz_int = integrate.cumtrapz(y=Pxz, dx=timestep, initial=0)
-                        Pyz_int = integrate.cumtrapz(y=Pyz, dx=timestep, initial=0)
-
-                        Pxxyy_int = integrate.cumtrapz(y=Pxxyy, dx=timestep, initial=0)
-                        Pyyzz_int = integrate.cumtrapz(y=Pyyzz, dx=timestep, initial=0)
-
-                        integral = (Pxy_int**2 + Pxz_int**2 + Pyz_int**2 + Pxxyy_int**2 + Pyyzz_int**2) / 5
-
-                        viscosity = integral[1:] * ( volume * 10**(-30) / (2 * kBT * Time[1:] * 10**(-12)) )
-
-                        return viscosity
-
                     viscosity = einstein(timestep=timestep)
 
                     print(f"\nViscosity (Einstein): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
@@ -152,6 +162,8 @@ for Name in Names:
                         plt.ylabel('Einstein Viscosity (mPa.s)')
                         plt.legend([f'Viscosity Estimate: {viscE} [mPa.s]'])
                         plt.title(f'{Name}_{Run}_{Temp}_Einstein')
+                        plt.xlim(0, 1)
+                        plt.ylim(0, 35)
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_Einstein.png'))
                         plt.close()
 
@@ -203,6 +215,7 @@ for Name in Names:
                         plt.ylabel('Green Kubo ACF')
                         plt.legend()
                         plt.title(f'{Name} {Temp}K Green Kubo ACF')
+                        # plt.xlim(0, 1)
                         plt.grid(color='grey', linestyle='--', linewidth=0.5)
                         plt.grid(which="minor", linestyle='--', linewidth=0.2)
                         plt.minorticks_on()
@@ -224,6 +237,8 @@ for Name in Names:
                         plt.ylabel('Green Kubo Viscosity (mPa.s)')
                         plt.legend([f'Viscosity Estimate: {round((viscosity[-1] * 1000), 2)} [mPa.s]'])
                         plt.title(f'{Name} {Temp}K Green Kubo Viscosity')
+                        plt.xlim(0, 1)
+                        plt.ylim(0, 35)
                         plt.grid(color='grey', linestyle='--', linewidth=0.5)
                         plt.grid(which="minor", linestyle='--', linewidth=0.2)
                         plt.minorticks_on()
@@ -264,7 +279,7 @@ for Name in Names:
 
                 # Plot Visc evolution - Green Kubo
                 ViscPlt, Vplot = plt.subplots()
-                Vplot.set_title(f'GK Viscosity Average - {Name} {Temp}K - 1ns')
+                Vplot.set_title(f'GK Viscosity Average - {Name} {Temp}K')
                 Vplot.set_ylabel('Viscosity [mPa.S]')
                 Vplot.set_xlabel('Time (ns)')
                 Vplot.plot(step, DataframeGKViscList_Average)
@@ -273,7 +288,8 @@ for Name in Names:
                 Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
                 Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
                 plt.minorticks_on()
-                # Vplot.set_xlim(-0.05, 3)
+                Vplot.set_xlim(0, 1)
+                Vplot.set_ylim(0, 35)
                 plt.savefig(join(STARTDIR, Name,  f'AvViscPlotGK_{Name}{Temp}K_2ns.png'))
                 plt.close()            
 
@@ -291,8 +307,25 @@ for Name in Names:
                 Vplot.grid(color='grey', linestyle='--', linewidth=0.5)
                 Vplot.grid(which="minor", linestyle='--', linewidth=0.2)
                 plt.minorticks_on()
-                # Vplot.set_xlim(-0.05, 3)
+                Vplot.set_xlim(0, 1)
+                Vplot.set_ylim(0, 35)
                 plt.savefig(join(STARTDIR, Name,  f'EinsteinAvViscPlot_{Name}{Temp}K_2ns.png'))
                 plt.close()   
             except:
                 pass
+
+
+def Bootstrap(numsamples,trjlen,numtrj,viscosity,Time,fv,plot,popt2):
+    #Perform calculate the viscosity of one bootstrapping sample
+    Bootlist = np.zeros((numsamples,trjlen))
+    for j in range(0,numsamples):
+        rint=randint(0,numtrj-1)
+        for k in range(0,trjlen):
+            Bootlist[j][k] = viscosity[rint][k]
+    average = np.zeros(trjlen)
+    stddev = np.zeros(trjlen)
+    for j in range(0,trjlen):
+        average[j] = np.average(Bootlist.transpose()[j])
+        stddev[j] = np.std(Bootlist.transpose()[j])
+    Value = fv.fitvisc(Time,average,stddev,plot,popt2)
+    return Value
