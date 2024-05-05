@@ -59,7 +59,7 @@ def einstein(timestep):
 
     return viscosity
 
-chdir('C:/Users/eeo21/Desktop/ValidationStudies12ACutoff_LOPLS')
+chdir('C:/Users/eeo21/Desktop/ValidationStudies12ACutoff_200mols/')
 STARTDIR = getcwd()
 
 Names = [x for x in listdir(getcwd()) if os.path.isdir(x)]
