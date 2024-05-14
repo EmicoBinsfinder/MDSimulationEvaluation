@@ -15,7 +15,7 @@ import os
 # Define ACF using FFT
 def acf(data):
     steps = data.shape[0]
-    lag = int(steps * 0.75)
+    lag = steps
 
     # Nearest size with power of 2 (for efficiency) to zero-pad the input data
     size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
@@ -59,14 +59,16 @@ def einstein(timestep):
 
     return viscosity
 
-chdir('C:/Users/eeo21/Desktop/ValidationStudies12ACutoff_200mols/')
+chdir('F:/PhD/HIGH_THROUGHPUT_STUDIES/MDsimulationEvaluation/ValidationStudies12ACutoff_200mols/')
 STARTDIR = getcwd()
 
 Names = [x for x in listdir(getcwd()) if os.path.isdir(x)]
 Temps = [313, 373]
 
 for Name in Names:
+    print(Name)
     for Temp in Temps:
+            print(Temp)
             chdir(join(STARTDIR, Name))
             Runs = [x for x in listdir(getcwd()) if os.path.isdir(x)]
 
@@ -102,7 +104,7 @@ for Name in Names:
                                 except:
                                     pass
 
-                    print(volume)
+                    # print(volume)
                     each = 10 # Sample frequency
                     plot = True # Create plot for autocorrelation function
 
@@ -122,12 +124,11 @@ for Name in Names:
                     Pxx, Pyy, Pzz, Pxy, Pxz, Pyz = [], [], [], [], [], []
 
                     # Read the pressure tensor elements from data file
-                    print('\nReading the pressure tensor data file')
                     with open(datafile, "r") as file:
                         next(file)
                         next(file)
 
-                        for _ in trange(steps, ncols=100, desc='Progress'):
+                        for _ in range(steps):
                             line = file.readline()
                             step = list(map(float, line.split()))
                             Pxx.append(step[1]*conv_ratio)
@@ -151,7 +152,7 @@ for Name in Names:
 
                     viscosity = einstein(timestep=timestep)
 
-                    print(f"\nViscosity (Einstein): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
+                    # print(f"\nViscosity (Einstein): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
                     viscE = round((viscosity[-1] * 1000), 2)
 
                     # Plot the running integral of viscosity
@@ -171,7 +172,7 @@ for Name in Names:
 
                     df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
 
-                    DataframeEinstein[f'Viscosity_{Run}'] = viscosity[:]*1000
+                    DataframeEinstein[f'Viscosity_{Run}'] = viscosity[:][:750]*1000
 
                     Time = np.linspace(0, end_step, num=steps, endpoint=False)
                     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -227,7 +228,7 @@ for Name in Names:
                     # df = pd.DataFrame({"time (ps)" : Time[:avg_acf.shape[0]], "ACF" : norm_avg_acf[:]})
                     # df.to_csv("avg_acf.csv", index=False)
 
-                    print(f"Viscosity (Green-Kubo): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
+                    # print(f"Viscosity (Green-Kubo): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
 
                     # Plot the time evolution of the viscosity estimate
                     if plot:
@@ -245,7 +246,7 @@ for Name in Names:
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GreenKubo2ns.png'))
                         plt.close()
 
-                    DataframeGK[f'Viscosity_{Run}'] = viscosity[:]*1000
+                    DataframeGK[f'Viscosity_{Run}'] = viscosity[:][:750]*1000
 
                     # Save running integral of the viscosity as a csv file
                     # df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
@@ -256,6 +257,10 @@ for Name in Names:
 
             try:
                 # Plot average value for each timestep
+
+                DataframeEinstein = DataframeEinstein.dropna()
+                DataframeGK = DataframeGK.dropna()
+
                 DataframeGK['Average'] = DataframeGK.mean(axis=1)
                 DataframeGK['STD'] = DataframeGK.std(axis=1)
                 DataframeEinstein['Average'] = DataframeEinstein.mean(axis=1)
@@ -273,6 +278,11 @@ for Name in Names:
                 DataframeEinsteinList_AverageSTD = [float(x) for x in DataframeEinsteinList_AverageSTD]
                 Einstein_LowerSTD = [a + b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
                 Einstein_UpperSTD = [a - b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
+
+                print('Einstein')
+                print(DataframeEinsteinList_AverageSTD[-1])
+                print('GK')
+                print(DataframeGKViscList_AverageSTD[-1])
 
                 step = list(range(0, len(DataframeGKViscList_Average)))
                 step = [x/1000 for x in step]
@@ -310,8 +320,14 @@ for Name in Names:
                 Vplot.set_xlim(0, 1)
                 Vplot.set_ylim(0, 35)
                 plt.savefig(join(STARTDIR, Name,  f'EinsteinAvViscPlot_{Name}{Temp}K_2ns.png'))
-                plt.close()   
-            except:
+                plt.close() 
+
+                print(f'Einstein: {round((DataframeEinsteinList_Average[-1]), 2)}')
+                print(f'GK: {round((DataframeGKViscList_Average[-1]), 2)}')
+
+
+            except Exception as E:
+                print(E)
                 pass
 
 

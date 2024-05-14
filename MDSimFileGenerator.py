@@ -48,13 +48,12 @@ units real
 atom_style full
 bond_style harmonic
 angle_style harmonic
-dihedral_style opls
+dihedral_style hybrid opls multi/harmonic
 improper_style harmonic
-pair_style lj/cut/coul/long 12.0 
+pair_style lj/cut/coul/cut 12.0 #change to cut/coul/long for kspace calculations
 pair_modify mix geometric tail yes
 special_bonds lj/coul 0.0 0.0 0.5
-kspace_style pppm 0.0001
-
+#kspace_style pppm 0.0001
 
 # Read lammps data file consist of molecular topology and forcefield info
 read_data       	{Name}_system.data
@@ -62,7 +61,56 @@ neighbor        	2.0 bin
 neigh_modify 		every 1 delay 0 check yes
 
 include         "{Name}_system.in.charges"
-include         "{Name}_system.in.settings"
+include         "settings.txt"
+
+########################################################################################
+CHARGES
+
+set type 80 charge -0.22    #CARBON CH3 (Sui)
+set type 81 charge -0.148   #CARBON CH2 (Sui)
+set type 88 charge -0.160   #CARBON CH (Sui)
+set type 85 charge  0.074   #HYDROGEN HC_CH2&CH3 single bond (Sui)
+set type 89 charge  0.160   #HYDROGEN HC_CH (hydrogen with double bonded carbon) (Sui)
+set type 406 charge 0.75    #Ester -COOR >>>>> CARBON >>> C_2 (Pluhackova)
+set type 407 charge -0.55   #Ester C=O >>>>> OXYGEN >>> O_2 (Pluhackova)
+set type 408 charge -0.45   #Ester CO-O-R >>>>> OXYGEN >>> OS (Pluhackova)
+
+########################################################################################
+NON BONDED INTERACTIONS
+
+pair_coeff   80  80    0.066000000000000   3.500000     
+pair_coeff   81  81    0.066000000000000   3.500000
+pair_coeff   82  82    0.075710400000000   3.550000    
+pair_coeff   85  85    0.026290631000000   2.500000    
+pair_coeff   89  89    0.030000000000000   2.420000   
+pair_coeff   406 406   0.105000000000000   3.187500
+pair_coeff   407 407   0.167360000000000   3.108000
+pair_coeff   408 408   0.169360000000000   2.550000
+
+#########################################################################################
+DIHEDRALS
+
+dihedral_coeff 40  multi/harmonic   0.728438     -0.864800   -1.23214     1.336379    0.000000    #CT CT C2 O2
+dihedral_coeff 51  multi/harmonic   -0.448883    -1.178005   0.624517     0.982929    0.000000    #CT CT C2 OS
+dihedral_coeff 52  multi/harmonic   0.217797     0.636519    -0.023530    -0.856219   0.000000    #HC CT CT OS
+dihedral_coeff 68  multi/harmonic   5.435142     0.00000     -5.715862    0.00000     0.00000     #CT OS C2 O2 
+dihedral_coeff 70  multi/harmonic   7.761123     -1.553674   -5.715855    0.00000     0.00000     #CT C2 OS CT
+dihedral_coeff 183 multi/harmonic   -1.432205    2.078667	 0.624936     -1.239164   0.000000    #C2 CT CT CT 
+dihedral_coeff 187 multi/harmonic   -0.174038    -0.440071   -0.017288    0.588167    0.000000    #C2 CT CT HC
+dihedral_coeff 196 multi/harmonic   0.124000     -0.055020   0.214340     -0.356440   0.000000    #CT CT CT CT (Sui)
+dihedral_coeff 265 multi/harmonic   -1.68071     1.796674    1.243688     -1.243040   0.000000    #C2 OS CT CT 
+dihedral_coeff 799 multi/harmonic   0.636100     0.379845    1.020183     -2.006533   0.000000    #CT CT CT OS
+
+##########################################################################################
+#Dictionary 
+#HC = Aliphatic hydrogen 
+#OH = hydroxyl oxygen 
+#OS = alkoxy oxygen
+#O_2 = ester carbonyl oxygen 
+#C_2 = ester carbonyl carbon
+#HC = alpha methoxy carbon
+#CT = alkoxy carbon 
+
 
 # Define variables
 variable        	eqmT equal $T			 			# Equilibrium temperature [K]
@@ -77,13 +125,7 @@ velocity        	all create ${{eqmT}} {VelNumber}
 fix             	min all nve
 thermo          	10
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
-# dump            	1 all custom 10 min_w_{Name}_T${{T}}KP1atm.lammpstrj id mol type x y z mass q
-# dump            	2 all custom 10 min_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
-# dump_modify     	1 sort id
-# dump_modify     	2 sort id
 minimize        	1.0e-16 1.06e-6 100000 500000
-# undump          	1
-# undump          	2
 write_restart   	Min_{Name}_T${{T}}KP1atm.restart
 
 unfix           	min
@@ -97,10 +139,7 @@ thermo				$d
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
 fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
 					append thermoNPT_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-# dump            	1 all custom $d NPT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
-# dump_modify     	1 sort id
 run					1000000
-# undump          	1
 unfix				NPT
 unfix               thermo_print
 write_restart  		NPT_{Name}_T${{T}}KP1atm.restart
@@ -115,10 +154,7 @@ thermo         		$d
 thermo_style 		custom step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol
 fix 				thermo_print all print $d "$(step) $(temp) $(press) $(density) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe) $(ke) $(etotal) $(evdwl) $(ecoul) $(epair) $(ebond) $(eangle) $(edihed) $(eimp) $(emol) $(etail) $(enthalpy) $(vol)" &
 					append thermoNVT_{Name}_T${{T}}KP1atm.out screen no title "# step temp press density pxx pyy pzz pxy pxz pyz pe ke etotal evdwl ecoul epair ebond eangle edihed eimp emol etail enthalpy vol"
-# dump            	1 all custom $d NVT_u_{Name}_T${{T}}KP1atm.lammpstrj id mol type xu yu zu mass q
-# dump_modify     	1 sort id
 run					500000
-# undump          	1
 unfix				NVT
 unfix           	adjust
 unfix               thermo_print
@@ -169,7 +205,6 @@ variable        Jy equal c_flux[2]/vol
 variable        Jz equal c_flux[3]/vol
 
 fix             	1 all nve
-#fix             	2 all langevin ${{eqmT}} ${{eqmT}} 100.0 482648
 
 variable        	myPxx equal c_myP[1]
 variable        	myPyy equal c_myP[2]
@@ -210,8 +245,6 @@ thermo_style custom step temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vo
 
 fix thermo_print all print $d "$(temp) $(press) $(v_myPxy) $(v_myPxz) $(v_myPyz) $(v_v11) $(v_v22) $(v_v33) $(vol) $(v_Jx) $(v_Jy) $(v_Jz) $(v_k11) $(v_k22) $(v_k33) $(v_vacf)" &
     append thermoNVE_{Name}_T${{T}}KP1atm.out screen no title "# temp press v_myPxy v_myPxz v_myPyz v_v11 v_v22 v_v33 vol v_Jx v_Jy v_Jz v_k11 v_k22 v_k33 v_vacf"
-
-# Dump all molecule coordinates
 
 # save thermal conductivity to file
 variable     kav equal (v_k11+v_k22+v_k33)/3.0
@@ -352,9 +385,9 @@ RunList = list(range(1, NumRuns+1))
 TopValue = RunList[-1] 
 BotValue = RunList[0]
 LOPLS = False
-WALLTIME = '23:59:59'
+WALLTIME = '07:59:59'
 
-runcmd('mkdir ValidationStudies12ACutoff_200mols')
+runcmd('mkdir ValidationStudies12ACutoff_200mols_LOPLS_NoKSPACE')
 
 for Molecule in Molecules:
     FolderName = Molecule.split('.')[0]
@@ -367,8 +400,8 @@ for Molecule in Molecules:
          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
     elif Molecule == 'bis_2_ethylhexyl_sebacate.pdb':
         SMILESString = 'CCCCC(CC)COC(=O)CCCCCCCCC(=O)OCC(CC)CCCC'
-    #elif Molecule == '1-Diphenyltetradecane.pdb':
-    #    SMILESString = 'C(c1ccccc1)(c1ccccc1)CCCCCCCCCCCCC'
+    elif Molecule == '1-Diphenyltetradecane.pdb':
+       SMILESString = 'CCCCCCCCCCCCCC(c1ccccc1)CCCC(c1ccccc1)'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
     
@@ -382,7 +415,7 @@ for Molecule in Molecules:
     GeneratePDB(SMILESString, PATH=join(STARTINGDIR, f'{FolderName}.pdb'))
 
     #Enter Trajectory studies directory
-    chdir(join(getcwd(), 'ValidationStudies12ACutoff_200mols'))
+    chdir(join(getcwd(), 'ValidationStudies12ACutoff_200mols_LOPLS_NoKSPACE'))
 
     #Make Molecule Folder in Trajectory studies directory
     runcmd(f'mkdir {FolderName}')
@@ -421,6 +454,10 @@ for Molecule in Molecules:
         # Copy lt file
         ltfile = f'{FolderName}.lt'
         runcmd(f'{CopyCommand} "{join(STARTINGDIR, ltfile)}" {join(getcwd(), Trajectory, ltfile)}')
+        # Copy settings file
+        settingsfile = 'settings.txt'
+        runcmd(f'{CopyCommand} "{join(STARTINGDIR, settingsfile)}" {join(getcwd(), Trajectory, settingsfile)}')
+
         # Set random seed
         Seed = rnd.randint(0, 1E6)
 
@@ -429,8 +466,8 @@ for Molecule in Molecules:
         # Make Moltemplate file
         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
         # Make Lammps Files
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=2000000, Temp=313)
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=2000000, Temp=373)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=1500000, Temp=313)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=1500000, Temp=373)
         # Make packmol coordinate file and LAMMPS data file
         chdir(join(getcwd(), Trajectory))
         if PYTHONPATH == 'python3':
@@ -438,10 +475,9 @@ for Molecule in Molecules:
             runcmd(f'moltemplate.sh -pdb {FolderName}_PackmolFile.pdb {FolderName}_system.lt')
 
         # Return to starting directory
-        chdir(join(STARTINGDIR, 'ValidationStudies12ACutoff_200mols', FolderName))
+        chdir(join(STARTINGDIR, 'ValidationStudies12ACutoff_200mols_LOPLS_NoKSPACE', FolderName))
     chdir(STARTINGDIR)
 
-    runcmd(f'del {FolderName}.lt')
     
 # ## Files showing finite size effects
 # """

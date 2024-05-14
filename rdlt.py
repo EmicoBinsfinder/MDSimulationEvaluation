@@ -167,7 +167,18 @@ def main():
     args = parser.parse_args()
 
     #Build rdkit molecule from smiles and generate a conformer
-    m = AllChem.AddHs(Chem.MolFromSmiles(args.smi))
+
+    m = Chem.MolFromSmiles(args.smi)
+
+    # AromaticAtomsObject = m.GetAromaticAtoms()
+    # AromaticAtoms = []
+    # for x in AromaticAtomsObject:
+    #     AromaticAtoms.append(x.GetIdx())
+        
+    # if len(AromaticAtoms) > 0: 
+    # Chem.SanitizeMol(m)
+    
+    m = AllChem.AddHs(m)
     AllChem.EmbedMolecule(m,AllChem.ETKDG())
 
     # WARNING: This part is dumb. Will update the lopls definitions ONLY
@@ -183,7 +194,7 @@ def main():
     features = factory.GetFeaturesForMol(m)
 
     #Use the features to assign an atom type property
-    [m.GetAtomWithIdx(f.GetAtomIds()[0]).SetProp('AtomType',f.GetType()) for f in features];
+    [m.GetAtomWithIdx(f.GetAtomIds()[0]).SetProp('AtomType',f.GetType()) for f in features]
 
     #if lopls defitions are desired, redo the feature process
     # overwrite atomtypes
@@ -194,7 +205,7 @@ def main():
         #print(len(lfeatures))
         #for f in lfeatures:
         #    print(f.GetId(), f.GetFamily(), f.GetType(), f.GetAtomIds())
-        [m.GetAtomWithIdx(f.GetAtomIds()[0]).SetProp('AtomType',f.GetType()) for f in lfeatures];
+        [m.GetAtomWithIdx(f.GetAtomIds()[0]).SetProp('AtomType',f.GetType()) for f in lfeatures]
         #[print(at.GetProp('AtomType')) for at in m.GetAtoms()]
 
     #find untyped atoms
