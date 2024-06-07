@@ -15,7 +15,8 @@ import os
 # Define ACF using FFT
 def acf(data):
     steps = data.shape[0]
-    lag = steps
+    # print(steps)
+    lag = steps 
 
     # Nearest size with power of 2 (for efficiency) to zero-pad the input data
     size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
@@ -32,6 +33,17 @@ def acf(data):
     autocorrelation = COR / np.arange(steps, 0, -1)
 
     return autocorrelation[:lag]
+
+# def acf(data):
+#     """
+#     Compute the autocorrelation function of the given data.
+#     """
+#     n = len(data)
+#     mean = np.mean(data)
+#     var = np.var(data)
+#     print(var)
+#     acf = np.correlate(data - mean, data - mean, mode='full') / (var * n)
+#     return acf[n-1:]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Viscosity from Einstein relation
@@ -50,16 +62,17 @@ def einstein(timestep):
     Pxz_int = integrate.cumtrapz(y=Pxz, dx=timestep, initial=0)
     Pyz_int = integrate.cumtrapz(y=Pyz, dx=timestep, initial=0)
 
-    Pxxyy_int = integrate.cumtrapz(y=Pxxyy, dx=timestep, initial=0)
-    Pyyzz_int = integrate.cumtrapz(y=Pyyzz, dx=timestep, initial=0)
+    # Pxxyy_int = integrate.cumtrapz(y=Pxxyy, dx=timestep, initial=0)
+    # Pyyzz_int = integrate.cumtrapz(y=Pyyzz, dx=timestep, initial=0)
 
-    integral = (Pxy_int**2 + Pxz_int**2 + Pyz_int**2 + Pxxyy_int**2 + Pyyzz_int**2) / 5
+    # integral = (Pxy_int**2 + Pxz_int**2 + Pyz_int**2 + Pxxyy_int**2 + Pyyzz_int**2) / 5
+    integral = (Pxy_int**2 + Pxz_int**2 + Pyz_int**2) / 3
 
     viscosity = integral[1:] * ( volume * 10**(-30) / (2 * kBT * Time[1:] * 10**(-12)) )
 
     return viscosity
 
-chdir('F:/PhD/HIGH_THROUGHPUT_STUDIES/MDsimulationEvaluation/ValidationStudies12ACutoff_200mols/')
+chdir('F:/PhD/HIGH_THROUGHPUT_STUDIES/MDsimulationEvaluation/ValidationStudies12ACutoff_200mols_LOPLS_KSPACE/')
 STARTDIR = getcwd()
 
 Names = [x for x in listdir(getcwd()) if os.path.isdir(x)]
@@ -88,7 +101,7 @@ for Name in Names:
                     unit = 'atm' #Pressure, bar or temperature
                     datafile = f'Stress_AVGOnespd_{Name}_T{Temp}KP1atm.out'
                     diag = False # Use the diagonal components for viscosity prediction
-                    steps = len(df) - 5 # Num steps to read from the pressure tensor file
+                    steps = len(df) -1 # Num steps to read from the pressure tensor file
                     timestep = 1 # What timestep are you using in the pressure tensor file
                     temperature = Temp #System temp
 
@@ -105,7 +118,7 @@ for Name in Names:
                                     pass
 
                     # print(volume)
-                    each = 10 # Sample frequency
+                    each = 2 # Sample frequency
                     plot = True # Create plot for autocorrelation function
 
                     # Conversion ratio from atm/bar to Pa
@@ -172,7 +185,7 @@ for Name in Names:
 
                     df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
 
-                    DataframeEinstein[f'Viscosity_{Run}'] = viscosity[:][:750]*1000
+                    DataframeEinstein[f'Viscosity_{Run}'] = viscosity[:]*1000
 
                     Time = np.linspace(0, end_step, num=steps, endpoint=False)
                     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,24 +197,25 @@ for Name in Names:
                         Pyz_acf = acf(Pyz)
 
                         # Calculate the shear components of the pressure tensor and their ACF
-                        if diag:
-                            Pxxyy = (Pxx - Pyy) / 2
-                            Pyyzz = (Pyy - Pzz) / 2
-                            Pxxzz = (Pxx - Pzz) / 2
+                        # if diag:
+                        #     Pxxyy = (Pxx - Pyy) / 2
+                        #     Pyyzz = (Pyy - Pzz) / 2
+                        #     Pxxzz = (Pxx - Pzz) / 2
 
-                            Pxxyy_acf = acf(Pxxyy)
-                            Pyyzz_acf = acf(Pyyzz)
-                            Pxxzz_acf = acf(Pxxzz)
+                        #     Pxxyy_acf = acf(Pxxyy)
+                        #     Pyyzz_acf = acf(Pyyzz)
+                        #     Pxxzz_acf = acf(Pxxzz)
 
-                        if diag:
-                            avg_acf = (Pxy_acf + Pxz_acf + Pyz_acf + Pxxyy_acf + Pyyzz_acf + Pxxzz_acf) / 6
-                        else:
-                            avg_acf = (Pxy_acf + Pxz_acf + Pyz_acf) / 3
+                        # if diag:
+                        #     avg_acf = (Pxy_acf + Pxz_acf + Pyz_acf + Pxxyy_acf + Pyyzz_acf + Pxxzz_acf) / 6
+                        avg_acf = (Pxy_acf + Pxz_acf + Pyz_acf) / 3
+
 
                         # Integrate the average ACF to get the viscosity
                         timestep = timestep * 10**(-12)
                         integral = integrate.cumtrapz(y=avg_acf, dx=timestep, initial=0)
                         viscosity = integral * (volume * 10**(-30) / kBT)
+                        # print(viscosity)
 
                         return avg_acf, viscosity
 
@@ -230,6 +244,7 @@ for Name in Names:
 
                     # print(f"Viscosity (Green-Kubo): {round((viscosity[-1] * 1000), 2)} [mPa.s]")
 
+
                     # Plot the time evolution of the viscosity estimate
                     if plot:
                         plt.figure()
@@ -246,7 +261,7 @@ for Name in Names:
                         plt.savefig(join(STARTDIR, Name, f'{Name}_{Run}_{Temp}_GreenKubo2ns.png'))
                         plt.close()
 
-                    DataframeGK[f'Viscosity_{Run}'] = viscosity[:][:750]*1000
+                    DataframeGK[f'Viscosity_{Run}'] = viscosity[:]*1000
 
                     # Save running integral of the viscosity as a csv file
                     # df = pd.DataFrame({"time(ps)" : Time[:viscosity.shape[0]:each], "viscosity(Pa.s)" : viscosity[::each]})
@@ -279,9 +294,9 @@ for Name in Names:
                 Einstein_LowerSTD = [a + b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
                 Einstein_UpperSTD = [a - b for a, b in zip(DataframeEinsteinList_Average, DataframeEinsteinList_AverageSTD)]
 
-                print('Einstein')
+                print('Einstein Uncert')
                 print(DataframeEinsteinList_AverageSTD[-1])
-                print('GK')
+                print('GK Uncert Viscosity')
                 print(DataframeGKViscList_AverageSTD[-1])
 
                 step = list(range(0, len(DataframeGKViscList_Average)))
@@ -322,8 +337,8 @@ for Name in Names:
                 plt.savefig(join(STARTDIR, Name,  f'EinsteinAvViscPlot_{Name}{Temp}K_2ns.png'))
                 plt.close() 
 
-                print(f'Einstein: {round((DataframeEinsteinList_Average[-1]), 2)}')
-                print(f'GK: {round((DataframeGKViscList_Average[-1]), 2)}')
+                print(f'Einstein Viscosity: {round((DataframeEinsteinList_Average[-1]), 2)}')
+                print(f'GK Viscosity: {round((DataframeGKViscList_Average[-1]), 2)}')
 
 
             except Exception as E:

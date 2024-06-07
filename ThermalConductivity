@@ -1,0 +1,52 @@
+import sys, argparse
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from scipy import integrate
+from scipy.constants import Boltzmann
+from scipy.optimize import curve_fit
+from tqdm import trange
+from os.path import join as join
+from os import chdir
+from os import getcwd
+from os import listdir
+import os
+
+# Define ACF using FFT
+def acf(data):
+    steps = data.shape[0]
+    # print(steps)
+    lag = steps 
+
+    # Nearest size with power of 2 (for efficiency) to zero-pad the input data
+    size = 2 ** np.ceil(np.log2(2 * steps - 1)).astype('int')
+
+    # Compute the FFT
+    FFT = np.fft.fft(data, size)
+
+    # Get the power spectrum
+    PWR = FFT.conjugate() * FFT
+
+    # Calculate the auto-correlation from inverse FFT of the power spectrum
+    COR = np.fft.ifft(PWR)[:steps].real
+
+    autocorrelation = COR / np.arange(steps, 0, -1)
+
+    return autocorrelation[:lag]
+
+def green_kubo(timestep, Pxy, Pxz, Pyz, volume, kBT):
+    # Calculate the ACFs
+    Pxy_acf = acf(Pxy)
+    Pxz_acf = acf(Pxz)
+    Pyz_acf = acf(Pyz)
+
+    avg_acf = (Pxy_acf + Pxz_acf + Pyz_acf) / 3
+
+    # Integrate the average ACF to get the viscosity
+    timestep = timestep * 10**(-12)
+    integral = integrate.cumtrapz(y=avg_acf, dx=timestep, initial=0)
+    viscosity = integral * (volume * 10**(-30) / kBT)
+    # print(viscosity)
+
+    return avg_acf, viscosity
+

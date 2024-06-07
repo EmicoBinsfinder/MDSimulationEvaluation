@@ -50,10 +50,10 @@ bond_style harmonic
 angle_style harmonic
 dihedral_style hybrid opls multi/harmonic
 improper_style harmonic
-pair_style lj/cut/coul/cut 12.0 #change to cut/coul/long for kspace calculations
+pair_style lj/cut/coul/long 12.0 #change to cut/coul/long for kspace calculations
 pair_modify mix geometric tail yes
 special_bonds lj/coul 0.0 0.0 0.5
-#kspace_style pppm 0.0001
+kspace_style pppm 0.0001
 
 # Read lammps data file consist of molecular topology and forcefield info
 read_data       	{Name}_system.data
@@ -64,7 +64,7 @@ include         "{Name}_system.in.charges"
 include         "settings.txt"
 
 ########################################################################################
-CHARGES
+#CHARGES
 
 set type 80 charge -0.22    #CARBON CH3 (Sui)
 set type 81 charge -0.148   #CARBON CH2 (Sui)
@@ -76,7 +76,7 @@ set type 407 charge -0.55   #Ester C=O >>>>> OXYGEN >>> O_2 (Pluhackova)
 set type 408 charge -0.45   #Ester CO-O-R >>>>> OXYGEN >>> OS (Pluhackova)
 
 ########################################################################################
-NON BONDED INTERACTIONS
+#NON BONDED INTERACTIONS
 
 pair_coeff   80  80    0.066000000000000   3.500000     
 pair_coeff   81  81    0.066000000000000   3.500000
@@ -88,7 +88,7 @@ pair_coeff   407 407   0.167360000000000   3.108000
 pair_coeff   408 408   0.169360000000000   2.550000
 
 #########################################################################################
-DIHEDRALS
+#DIHEDRALS
 
 dihedral_coeff 40  multi/harmonic   0.728438     -0.864800   -1.23214     1.336379    0.000000    #CT CT C2 O2
 dihedral_coeff 51  multi/harmonic   -0.448883    -1.178005   0.624517     0.982929    0.000000    #CT CT C2 OS
@@ -385,7 +385,7 @@ RunList = list(range(1, NumRuns+1))
 TopValue = RunList[-1] 
 BotValue = RunList[0]
 LOPLS = False
-WALLTIME = '07:59:59'
+WALLTIME = '23:59:59'
 
 runcmd('mkdir ValidationStudies12ACutoff_200mols_LOPLS_NoKSPACE')
 
@@ -400,8 +400,6 @@ for Molecule in Molecules:
          SMILESString = 'CC(C)CCCC(C)CCCC(C)CCCCC(C)CCCC(C)CCCC(C)C'
     elif Molecule == 'bis_2_ethylhexyl_sebacate.pdb':
         SMILESString = 'CCCCC(CC)COC(=O)CCCCCCCCC(=O)OCC(CC)CCCC'
-    elif Molecule == '1-Diphenyltetradecane.pdb':
-       SMILESString = 'CCCCCCCCCCCCCC(c1ccccc1)CCCC(c1ccccc1)'
     else:
         SMILESString = Chem.MolToSmiles(MolObject)
     
@@ -466,8 +464,8 @@ for Molecule in Molecules:
         # Make Moltemplate file
         MakeMoltemplateFile(Name=FolderName, CWD=join(getcwd(), Trajectory), NumMols=NumMols, BoxL=BoxL)
         # Make Lammps Files
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=1500000, Temp=313)
-        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=1500000, Temp=373)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=3000000, Temp=313)
+        MakeLAMMPSFile(Name=FolderName, ID=x, CWD=join(getcwd(), Trajectory), GKRuntime=3000000, Temp=373)
         # Make packmol coordinate file and LAMMPS data file
         chdir(join(getcwd(), Trajectory))
         if PYTHONPATH == 'python3':
