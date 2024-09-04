@@ -9,6 +9,7 @@ from tqdm import trange
 from os.path import join as join
 from os import chdir
 from os import getcwd
+import traceback
 from os import listdir
 import os
 
@@ -34,19 +35,92 @@ def acf(data):
 
     return autocorrelation[:lag]
 
-def green_kubo(timestep, Pxy, Pxz, Pyz, volume, kBT):
+def green_kubo(timestep, Jxy, Jxz, Jyz, volume, kB, Temp):
     # Calculate the ACFs
-    Pxy_acf = acf(Pxy)
-    Pxz_acf = acf(Pxz)
-    Pyz_acf = acf(Pyz)
+    Pxy_acf = acf(Jxy)
+    Pxz_acf = acf(Jxz)
+    Pyz_acf = acf(Jyz)
 
     avg_acf = (Pxy_acf + Pxz_acf + Pyz_acf) / 3
 
     # Integrate the average ACF to get the viscosity
     timestep = timestep * 10**(-12)
     integral = integrate.cumtrapz(y=avg_acf, dx=timestep, initial=0)
-    viscosity = integral * (volume * 10**(-30) / kBT)
-    # print(viscosity)
+    thermalK = integral * (4.83166430676946e-16 / (10 * kB * (Temp**2) * (volume * 10**(-30))))
+    return avg_acf, thermalK
 
-    return avg_acf, viscosity
+chdir('F:/PhD/HIGH_THROUGHPUT_STUDIES/MDsimulationEvaluation/ValidationStudies12ACutoff_200mols_LOPLS_KSPACE/')
+STARTDIR = getcwd()
 
+Names = [x for x in listdir(getcwd()) if os.path.isdir(x)]
+Temps = [313]
+
+for Name in Names:
+    print(Name)
+    for Temp in Temps:
+            print(Temp)
+            chdir(join(STARTDIR, Name))
+            Runs = [x for x in listdir(getcwd()) if os.path.isdir(x)]
+
+            DataframeEinstein = pd.DataFrame()
+            DataframeGK = pd.DataFrame()
+
+            for Run in Runs:
+                try:
+                    chdir(join(STARTDIR, Name, Run))
+                    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+                    df = pd.read_csv(f'HeatFlux_AVGOnespd_{Name}_T{Temp}KP1atm.out')
+                    unit = 'atm' #Pressure, bar or temperature
+                    datafile = f'HeatFlux_AVGOnespd_{Name}_T{Temp}KP1atm.out'
+                    diag = False # Use the diagonal components for viscosity prediction
+                    steps = len(df) -1 # Num steps to read from the pressure tensor file
+                    timestep = 1 # What timestep are you using in the pressure tensor file
+                    temperature = Temp #System temp
+                
+                    with open(f'logGKvisc_{Name}_T{Temp}KP1atm.out', "r") as file:
+                        content = file.readlines()
+                        for line in content:
+                            linecontent = line.split(' ')
+                            linecontent = [x for x in linecontent if x != '']
+                            if len(linecontent) == 18:
+                                try:
+                                    vol = linecontent[9]
+                                    volume = float(vol)
+                                except:
+                                    pass
+                    
+                    # Calculate the kBT value
+                    kB = Boltzmann 
+
+                    # Initiate the pressure tensor component lists
+                    Jxy, Jxz, Jyz = [], [], []
+
+                    with open(datafile, "r") as file:
+                        next(file)
+                        next(file)
+
+                        for _ in range(steps):
+                            line = file.readline()
+                            step = list(map(float, line.split()))
+                            Jxy.append(step[1])
+                            Jxz.append(step[2])
+                            Jyz.append(step[3])                                        
+
+                    # Convert lists to numpy arrays
+                    Jxy = np.array(Jxy)
+                    Jxz = np.array(Jxz)
+                    Jyz = np.array(Jyz)
+
+                    # Generate the time array
+                    end_step = steps * timestep
+                    Time = np.linspace(0, end_step, num=steps, endpoint=False)      
+
+                    avg_acf, thermalK = green_kubo(timestep, Jxy, Jxz, Jyz, volume, kB, Temp)
+
+                    print((thermalK[-1])/1000)
+                
+                except Exception as E:
+                     print(E)
+                     traceback.print_exc()
+                     pass

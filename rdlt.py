@@ -6,6 +6,7 @@ import sys, pickle, argparse
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import rdDistGeom
 
 def writeHeader(molname, loplsflag):
     print("""import "oplsaa.lt"    # <-- defines the standard "OPLSAA" force field""")
@@ -178,8 +179,12 @@ def main():
     # if len(AromaticAtoms) > 0: 
     # Chem.SanitizeMol(m)
     
+    params = AllChem.ETKDGv3()
+    params.useRandomCoords = True
     m = AllChem.AddHs(m)
-    AllChem.EmbedMolecule(m,AllChem.ETKDG())
+    AllChem.EmbedMolecule(m, params)
+    Chem.SanitizeMol(m)
+
 
     # WARNING: This part is dumb. Will update the lopls definitions ONLY
     # if the lopls flag is used. If a path is passed with the refresh command
@@ -192,6 +197,7 @@ def main():
     #Build a feature factory from the defintion file and assign all features
     factory = Chem.ChemicalFeatures.BuildFeatureFactory(args.fdef)
     features = factory.GetFeaturesForMol(m)
+    print(features)
 
     #Use the features to assign an atom type property
     [m.GetAtomWithIdx(f.GetAtomIds()[0]).SetProp('AtomType',f.GetType()) for f in features]
